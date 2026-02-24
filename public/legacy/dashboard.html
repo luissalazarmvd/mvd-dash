@@ -513,60 +513,56 @@
       });
     }
 
-      async function loadDataAsync(){
-        const resp = await fetch("/data/data.json", { cache:"no-store" });
-        if(!resp.ok){
-          throw new Error("Data no disponible ("+resp.status+")");
-        }
-
-        const payload = await resp.json();
-        const rows = Array.isArray(payload?.rows) ? payload.rows : [];
-
-        const opsRows = rows.map(r => {
-          const sede = String(r["SEDE"] ?? "").trim().toUpperCase();
-
-          // 1) coords: venir como "lon,lat" o null -> convertir a [lat,lon]
-          const rawXY = r["VeriCooXY"];
-          const coords = Array.isArray(rawXY) ? rawXY : parseVeriCooXY(rawXY);
-
-          // 2) dept: si viene vacío, derivar desde sede
-          const depRaw = r["DEPARTAMENTO"] ? String(r["DEPARTAMENTO"]).trim().toUpperCase() : "";
-          const dep = depRaw || (SEDE_DEP[sede] ? up(SEDE_DEP[sede]) : "");
-
-          // 3) zona: derivar desde sede (esto es lo que te faltaba)
-          const zona = zoneFromSede(sede);
-
-          let fecha = r["FECHA DE PAGO (TLC)"] || r["DOCUMENTO FECHA"] || null;
-          // normaliza a ISO si viene dd/mm/yyyy o número excel
-          const d = tryParseDate(fecha);
-          if(d) fecha = d.toISOString();
-
-          return ({
-            RUC: r["RUC"] ?? "",
-            PROVEEDOR: r["NOMBRES / RAZON SOCIAL"] ?? "",
-            SEDE: sede,
-            DEPARTAMENTO: dep,
-            ZONA: zona,
-
-            VeriCooXY: coords,
-            VerifMin: r["URL VeriMin"],
-
-            CAR: r["CAR"],
-            TMS: r["Volumen de toneladas (TMS) adquiridas"] ?? 0,
-            IMPORTE: r["IMPORTE TOTAL DE LA FACTURA"] ?? 0,
-            FECHA: fecha,
-          });
-        });
-
-        DATA = {
-          last_update: payload?.last_update || "",
-          source_files: payload?.source_files || [],
-          source_sheets: payload?.source_sheets || [],
-          opsRows
-        };
-
-        return DATA;
+    async function loadDataAsync(){
+      const resp = await fetch("/data/data.json", { cache:"no-store" });
+      if(!resp.ok){
+        throw new Error("Data no disponible ("+resp.status+")");
       }
+
+      const payload = await resp.json();
+      const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+
+      const opsRows = rows.map(r => {
+        const sede = String(r["SEDE"] ?? "").trim().toUpperCase();
+
+        const rawXY = r["VeriCooXY"];
+        const coords = Array.isArray(rawXY) ? rawXY : parseVeriCooXY(rawXY);
+
+        const depRaw = r["DEPARTAMENTO"] ? String(r["DEPARTAMENTO"]).trim().toUpperCase() : "";
+        const dep = depRaw || (SEDE_DEP[sede] ? up(SEDE_DEP[sede]) : "");
+
+        const zona = zoneFromSede(sede);
+
+        let fecha = r["FECHA DE PAGO (TLC)"] || r["DOCUMENTO FECHA"] || null;
+        const d = tryParseDate(fecha);
+        if(d) fecha = d.toISOString();
+
+        return ({
+          RUC: r["RUC"] ?? "",
+          PROVEEDOR: r["NOMBRES / RAZON SOCIAL"] ?? "",
+          SEDE: sede,
+          DEPARTAMENTO: dep,
+          ZONA: zona,
+
+          VeriCooXY: coords,
+          VerifMin: r["URL VeriMin"],
+
+          CAR: r["CAR"],
+          TMS: r["Volumen de toneladas (TMS) adquiridas"] ?? 0,
+          IMPORTE: r["IMPORTE TOTAL DE LA FACTURA"] ?? 0,
+          FECHA: fecha,
+        });
+      });
+
+      DATA = {
+        last_update: payload?.last_update || "",
+        source_files: payload?.source_files || [],
+        source_sheets: payload?.source_sheets || [],
+        opsRows
+      };
+
+      return DATA;
+    }
 
     async function saveDataAsync(obj){
       await idbSet(LS_KEY_DATA, obj);
@@ -1091,7 +1087,7 @@
       const rows=getFilteredOpsRows();
       const deptStats=buildDeptStats(rows);
 
-      const totalProv = new Set(rows.map(r => String(r.RUC || ""))).size || 0;
+      const totalProv = new Set(rows.map(r=>String(r.RUC||""))).size || 0;
       const totalOps  = uniqueCarCount(rows) || 0;
       const totalTms  = sumTmsUniqueCar(rows);
 
@@ -1150,59 +1146,53 @@
 
     function renderMode1_Departamento(recenter){
       clearMapOverlays();
+      const rows=getFilteredOpsRows();
+      const dept=filterDepartamento;
 
-      const rows = getFilteredOpsRows();
-      const dept = filterDepartamento;
-
-      if(!dept){
-        renderMode0_Nacional(recenter);
-        return;
-      }
+      if(!dept){ renderMode0_Nacional(recenter); return; }
 
       const rowsNationBase = getTimeFilteredAllRows();
-      const rowsNation = filterZona ? rowsNationBase.filter(r => r.ZONA === filterZona) : rowsNationBase;
+      const rowsNation = filterZona ? rowsNationBase.filter(r=>r.ZONA===filterZona) : rowsNationBase;
 
-      const nationStats = buildDeptStats(rowsNation);
+      const totalProvNation = new Set(rowsNation.map(r=>String(r.RUC||""))).size || 0;
+      const totalOpsNation  = uniqueCarCount(rowsNation) || 0;
+      const totalTmsNation  = sumTmsUniqueCar(rowsNation);
+
+      const deptProv = new Set(rows.map(r=>String(r.RUC||""))).size || 0;
+      const deptOps  = uniqueCarCount(rows) || 0;
+      const deptTms  = sumTmsUniqueCar(rows);
 
       const totalMetricNation =
-        (mapMetric==="PROV") ? (new Set(rowsNation.map(r => String(r.RUC||""))).size || 0) :
-        (mapMetric==="OPS")  ? (uniqueCarCount(rowsNation) || 0) :
-                              (sumTmsUniqueCar(rowsNation));
-
-      const deptEntry = nationStats.find(d => d.DEPARTAMENTO === dept);
+        (mapMetric==="PROV") ? totalProvNation :
+        (mapMetric==="OPS")  ? totalOpsNation  :
+        totalTmsNation;
 
       const deptMetric =
-        (mapMetric==="PROV") ? (new Set(rows.map(r => String(r.RUC||""))).size || 0) :
-        (mapMetric==="OPS")  ? (uniqueCarCount(rows) || 0) :
-                              (sumTmsUniqueCar(rows));
+        (mapMetric==="PROV") ? deptProv :
+        (mapMetric==="OPS")  ? deptOps  :
+        deptTms;
 
-      const pctDeptReal = totalMetricNation ? (deptMetric / totalMetricNation) * 100 : 0;
+      const pctDeptReal = totalMetricNation ? (deptMetric/totalMetricNation)*100 : 0;
 
-      const sedeStatsAll = buildSedeStats(rows).filter(s => s.DEPARTAMENTO === dept);
-
-      const deptMetricFromSedes =
-        (mapMetric === "PROV") ? sedeStatsAll.reduce((s,x)=> s + (x.PROV_COUNT||0), 0) :
-        (mapMetric === "OPS")  ? sedeStatsAll.reduce((s,x)=> s + (x.OPS_COUNT||0), 0) :
-                                sedeStatsAll.reduce((s,x)=> s + (x.TMS_SUM||0), 0);
-
-      const deptMetricSafe = deptMetricFromSedes || 1;
+      const sedeStatsAll=buildSedeStats(rows).filter(s=>s.DEPARTAMENTO===dept);
+      const deptMetricSafe = deptMetric || 1;
 
       for(const s of sedeStatsAll){
-        const sede = s.SEDE;
-        const ll = SEDE_COORDS[sede] || null;
+        const sede=s.SEDE;
+        const ll=SEDE_COORDS[sede] || null;
         if(!ll) continue;
 
         const sedeMetric =
-          (mapMetric === "PROV") ? (s.PROV_COUNT||0) :
-          (mapMetric === "OPS")  ? (s.OPS_COUNT||0)  :
-                                  (s.TMS_SUM||0);
+          (mapMetric==="PROV") ? s.PROV_COUNT :
+          (mapMetric==="OPS")  ? s.OPS_COUNT  :
+          s.TMS_SUM;
 
-        const pctSede = (sedeMetric / deptMetricSafe) * pctDeptReal;
+        const pctSede=(sedeMetric/deptMetricSafe)*pctDeptReal;
 
         const metricLabel = (mapMetric==="PROV") ? "Proveedores" : (mapMetric==="OPS") ? "OPS" : "TMS";
-        const m = L.marker(ll, { icon: makePctIcon(pctSede, "sede"), interactive:true });
+        const m=L.marker(ll,{ icon:makePctIcon(pctSede,"sede"), interactive:true });
 
-        const tip = `
+        const tip=`
           <div style="font-weight:950;color:#0b2b3a;">${esc(sede)}</div>
           <div style="font-size:.84rem;">
             Dep.: <b>${esc(dept)}</b><br/>
@@ -1213,11 +1203,11 @@
             Participación real (${esc(metricLabel)}): <b>${esc(fmtPct1(pctSede))}%</b>
           </div>
         `;
-        m.bindTooltip(tip,{ direction:"top", opacity:0.95, sticky:true });
+        m.bindTooltip(tip,{direction:"top", opacity:0.95, sticky:true});
 
         m.on("click", ()=>{
-          filterSede = sede; selSede.value = sede;
-          filterProviderRuc = "";
+          filterSede=sede; selSede.value=sede;
+          filterProviderRuc="";
           renderAll(true);
         });
 
@@ -1225,12 +1215,12 @@
       }
 
       if(recenter){
-        const b = deptBoundsByName(dept);
-        if(b) map.fitBounds(b,{ padding:[24,24] });
+        const b=deptBoundsByName(dept);
+        if(b) map.fitBounds(b,{padding:[24,24]});
       }
 
       if(showVeriCooXY){
-        renderProviderPoints(rows, false, false);
+        renderProviderPoints(rows,false,false);
       }
     }
 
