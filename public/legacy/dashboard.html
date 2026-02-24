@@ -1091,9 +1091,9 @@
       const rows=getFilteredOpsRows();
       const deptStats=buildDeptStats(rows);
 
-      const totalProv = deptStats.reduce((s,d)=> s + (d.PROV_COUNT||0), 0);
-      const totalOps  = deptStats.reduce((s,d)=> s + (d.OPS_COUNT||0), 0);
-      const totalTms  = deptStats.reduce((s,d)=> s + (d.TMS_SUM||0), 0);
+      const totalProv = new Set(rows.map(r => String(r.RUC || ""))).size || 0;
+      const totalOps  = uniqueCarCount(rows) || 0;
+      const totalTms  = sumTmsUniqueCar(rows);
 
       const totalMetric =
         (mapMetric==="PROV") ? totalProv :
@@ -1165,17 +1165,16 @@
       const nationStats = buildDeptStats(rowsNation);
 
       const totalMetricNation =
-        (mapMetric === "PROV") ? nationStats.reduce((s,d)=> s + (d.PROV_COUNT||0), 0) :
-        (mapMetric === "OPS")  ? nationStats.reduce((s,d)=> s + (d.OPS_COUNT||0), 0) :
-                                nationStats.reduce((s,d)=> s + (d.TMS_SUM||0), 0);
+        (mapMetric==="PROV") ? (new Set(rowsNation.map(r => String(r.RUC||""))).size || 0) :
+        (mapMetric==="OPS")  ? (uniqueCarCount(rowsNation) || 0) :
+                              (sumTmsUniqueCar(rowsNation));
 
       const deptEntry = nationStats.find(d => d.DEPARTAMENTO === dept);
 
-      const deptMetric = deptEntry
-        ? (mapMetric === "PROV") ? (deptEntry.PROV_COUNT||0)
-          : (mapMetric === "OPS") ? (deptEntry.OPS_COUNT||0)
-          : (deptEntry.TMS_SUM||0)
-        : 0;
+      const deptMetric =
+        (mapMetric==="PROV") ? (new Set(rows.map(r => String(r.RUC||""))).size || 0) :
+        (mapMetric==="OPS")  ? (uniqueCarCount(rows) || 0) :
+                              (sumTmsUniqueCar(rows));
 
       const pctDeptReal = totalMetricNation ? (deptMetric / totalMetricNation) * 100 : 0;
 
