@@ -513,27 +513,43 @@
       });
     }
 
-    async function loadDataAsync(){
-      // Rolex mode: data is served by backend as JSON (no Excel exposure)
-      const url = withToken("/api/data");
-      const resp = await fetch(url, {credentials:"include"});
-      if(!resp.ok){
-        throw new Error("No autorizado / data no disponible ("+resp.status+")");
+      async function loadDataAsync(){
+        const resp = await fetch("/data/data.json", { cache:"no-store" });
+        if(!resp.ok){
+          throw new Error("Data no disponible ("+resp.status+")");
+        }
+
+        const payload = await resp.json();
+        const rows = Array.isArray(payload?.rows) ? payload.rows : [];
+
+        const opsRows = rows.map(r => ({
+          RUC: r["RUC"] ?? "",
+          PROVEEDOR: r["NOMBRES / RAZON SOCIAL"] ?? "",
+          SEDE: String(r["SEDE"] ?? "").trim().toUpperCase(),
+          DEPARTAMENTO: r["DEPARTAMENTO"] ? String(r["DEPARTAMENTO"]).trim().toUpperCase() : "",
+          ZONA: "",
+          VeriCooXY: r["VeriCooXY"],
+          VerifMin: r["URL VeriMin"],
+          CAR: r["CAR"],
+          TMS: r["Volumen de toneladas (TMS) adquiridas"] ?? 0,
+          IMPORTE: r["IMPORTE TOTAL DE LA FACTURA"] ?? 0,
+          FECHA: r["FECHA DE PAGO (TLC)"] || r["DOCUMENTO FECHA"] || null,
+        }));
+
+        opsRows.forEach(r=>{
+          if(r && (r.ZONA===undefined || r.ZONA===null)) r.ZONA = "";
+          if(r && typeof r.FECHA==="string" && r.FECHA.length===10) r.FECHA = r.FECHA+"T00:00:00Z";
+        });
+
+        DATA = {
+          last_update: payload?.last_update || "",
+          source_files: payload?.source_files || [],
+          source_sheets: payload?.source_sheets || [],
+          opsRows
+        };
+
+        return DATA;
       }
-      const payload = await resp.json();
-      const rows = Array.isArray(payload?.opsRows) ? payload.opsRows : [];
-      // Normalize
-      rows.forEach(r=>{
-        if(r && typeof r.SEDE==="string") r.SEDE = r.SEDE.trim().toUpperCase();
-        if(r && typeof r.DEPARTAMENTO==="string") r.DEPARTAMENTO = r.DEPARTAMENTO.trim().toUpperCase();
-        if(r && (r.ZONA===undefined || r.ZONA===null)) r.ZONA="";
-        if(r && typeof r.FECHA==="string" && r.FECHA.length===10) r.FECHA = r.FECHA+"T00:00:00Z";
-        if(r && typeof r.TMS==="string") r.TMS = toNum(r.TMS);
-        if(r && typeof r.IMPORTE==="string") r.IMPORTE = toNum(r.IMPORTE);
-      });
-      DATA = { opsRows: rows, meta: payload?.meta || {} };
-      return DATA;
-    }
 
     async function saveDataAsync(obj){
       await idbSet(LS_KEY_DATA, obj);
