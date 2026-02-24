@@ -522,23 +522,40 @@
         const payload = await resp.json();
         const rows = Array.isArray(payload?.rows) ? payload.rows : [];
 
-        const opsRows = rows.map(r => ({
-          RUC: r["RUC"] ?? "",
-          PROVEEDOR: r["NOMBRES / RAZON SOCIAL"] ?? "",
-          SEDE: String(r["SEDE"] ?? "").trim().toUpperCase(),
-          DEPARTAMENTO: r["DEPARTAMENTO"] ? String(r["DEPARTAMENTO"]).trim().toUpperCase() : "",
-          ZONA: "",
-          VeriCooXY: r["VeriCooXY"],
-          VerifMin: r["URL VeriMin"],
-          CAR: r["CAR"],
-          TMS: r["Volumen de toneladas (TMS) adquiridas"] ?? 0,
-          IMPORTE: r["IMPORTE TOTAL DE LA FACTURA"] ?? 0,
-          FECHA: r["FECHA DE PAGO (TLC)"] || r["DOCUMENTO FECHA"] || null,
-        }));
+        const opsRows = rows.map(r => {
+          const sede = String(r["SEDE"] ?? "").trim().toUpperCase();
 
-        opsRows.forEach(r=>{
-          if(r && (r.ZONA===undefined || r.ZONA===null)) r.ZONA = "";
-          if(r && typeof r.FECHA==="string" && r.FECHA.length===10) r.FECHA = r.FECHA+"T00:00:00Z";
+          // 1) coords: venir como "lon,lat" o null -> convertir a [lat,lon]
+          const rawXY = r["VeriCooXY"];
+          const coords = Array.isArray(rawXY) ? rawXY : parseVeriCooXY(rawXY);
+
+          // 2) dept: si viene vacío, derivar desde sede
+          const depRaw = r["DEPARTAMENTO"] ? String(r["DEPARTAMENTO"]).trim().toUpperCase() : "";
+          const dep = depRaw || (SEDE_DEP[sede] ? up(SEDE_DEP[sede]) : "");
+
+          // 3) zona: derivar desde sede (esto es lo que te faltaba)
+          const zona = zoneFromSede(sede);
+
+          let fecha = r["FECHA DE PAGO (TLC)"] || r["DOCUMENTO FECHA"] || null;
+          // normaliza a ISO si viene dd/mm/yyyy o número excel
+          const d = tryParseDate(fecha);
+          if(d) fecha = d.toISOString();
+
+          return ({
+            RUC: r["RUC"] ?? "",
+            PROVEEDOR: r["NOMBRES / RAZON SOCIAL"] ?? "",
+            SEDE: sede,
+            DEPARTAMENTO: dep,
+            ZONA: zona,
+
+            VeriCooXY: coords,
+            VerifMin: r["URL VeriMin"],
+
+            CAR: r["CAR"],
+            TMS: r["Volumen de toneladas (TMS) adquiridas"] ?? 0,
+            IMPORTE: r["IMPORTE TOTAL DE LA FACTURA"] ?? 0,
+            FECHA: fecha,
+          });
         });
 
         DATA = {
