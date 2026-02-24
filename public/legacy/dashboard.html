@@ -1,0 +1,1893 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Dashboard</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+  <style>
+    :root{
+      --bg:#f5f7fb; --card:#fff; --ink:#0b2b3a; --muted:#6c757d; --line:#e6ebf2;
+      --vdBlue: rgb(0,103,172);
+      --zn:#0d6efd; --zs:#ffc107; --zsa:#fd7e14; --na:#cfd8dc;
+    }
+    html, body { height:100%; }
+    body{ margin:0; background:var(--bg); font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; color:var(--ink); overflow:hidden; }
+    .dash-shell{ height:100vh; display:flex; flex-direction:column; padding:12px 14px; gap:10px; overflow:hidden; }
+    .cardx{ background:var(--card); border:1px solid rgba(0,0,0,.06); border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.05); }
+
+    .dash-header{ position:relative; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex:0 0 auto; padding:0; }
+    .dash-title{ font-size:1.05rem; font-weight:800; letter-spacing:.2px; }
+    .dash-sub{ font-size:.82rem; color:var(--muted); margin-top:2px; }
+    .topbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end; padding-top:2px; }
+    .btn{ border-radius:10px; padding:.25rem .75rem; font-weight:700; }
+    .gear{ background:transparent; border:none; width:auto; height:auto; padding:0; font-size:22px; cursor:pointer; user-select:none; }
+
+    .vdBrand{ position:absolute; left:50%; top:2px; transform:translateX(-50%); display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer; user-select:none; padding:2px 8px; border-radius:12px; }
+    .vdBrand:active{ transform:translateX(-50%) scale(.99); }
+    .vdLogo{ height:26px; width:auto; display:block; }
+    .vdFallback{ display:none; font-weight:950; letter-spacing:.2px; color:var(--vdBlue); font-size:1.35rem; line-height:1; padding:2px 0; white-space:nowrap; }
+
+    .kpi-row{ display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; flex:0 0 auto; }
+    .kpi-card{ padding:10px 12px; min-height:74px; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; overflow:hidden; }
+    .kpi-title{ font-size:.78rem; color:var(--muted); margin-bottom:2px; font-weight:900; }
+    .kpi-value{ font-size:1.85rem; font-weight:950; line-height:1.05; letter-spacing:-.2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .kpi-value.bigtext{ font-size:1.55rem; }
+
+    .main-row{ display:grid; grid-template-columns: 1.6fr 1fr; gap:10px; flex:1 1 auto; min-height:0; overflow:hidden; }
+    .main-left, .main-right{ min-height:0; overflow:hidden; }
+    .panel{ height:100%; display:flex; flex-direction:column; overflow:hidden; }
+    .panel-head{ padding:10px 10px 8px 10px; flex:0 0 auto; }
+    .panel-title{ font-weight:950; font-size:.92rem; margin:0; }
+
+    .filters-row{ margin-top:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .filters-row .form-select, .filters-row .form-check{ height:34px; border-radius:10px; font-weight:640; font-size:.86rem; }
+    .filters-row .form-select{ padding-top:.35rem; padding-bottom:.35rem; }
+
+    .legend{ margin-left:auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:.72rem; color:var(--ink); font-weight:500; }
+    .legend-item{ display:flex; align-items:center; gap:6px; white-space:nowrap; font-weight:500; }
+    .legend-dot{ width:10px;height:10px;border-radius:2px; display:inline-block; }
+
+    .map-wrap{ padding:0 10px 10px 10px; flex:1 1 auto; min-height:0; overflow:hidden; }
+    #map{ height:100%; width:100%; border-radius:14px; overflow:hidden; }
+
+    .right-stack{ padding:10px; display:flex; flex-direction:column; gap:10px; min-height:0; height:100%; overflow:hidden; }
+
+    .chart-card{ padding:10px 10px 8px 10px; flex:0 0 auto; }
+    .chart-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px; }
+    .chart-title{ font-weight:950; font-size:.9rem; margin:0; }
+    .chart-tools{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .dropbtn{
+      height:30px; border-radius:10px; font-weight:900; font-size:.82rem;
+      padding:.2rem .55rem; border:1px solid rgba(0,0,0,.12); background:#fff;
+      display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none; white-space:nowrap;
+    }
+    .dropbtn:hover{ filter:brightness(.985); }
+    .dd{ position:relative; display:inline-block; }
+    .dd-panel{
+      position:absolute; right:0; top:36px; z-index:50; width:240px; max-width:240px;
+      background:#fff; border:1px solid rgba(0,0,0,.10); box-shadow:0 18px 38px rgba(0,0,0,.15);
+      border-radius:12px; padding:10px; display:none;
+    }
+    .dd-panel.show{ display:block; }
+    .dd-title{ font-weight:950; font-size:.82rem; margin-bottom:6px; color:var(--ink); }
+    .dd-actions{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+    .dd-actions .btn{ padding:.25rem .55rem; font-size:.78rem; font-weight:950; border-radius:10px; }
+    .dd-list{ max-height:220px; overflow:auto; padding-right:6px; }
+    .dd-item{ display:flex; align-items:center; gap:8px; padding:6px 6px; border-radius:10px; cursor:pointer; user-select:none; }
+    .dd-item:hover{ background:#f6f9ff; }
+    .dd-item input{ margin:0; }
+    .dd-item label{ margin:0; font-weight:850; font-size:.84rem; color:var(--ink); cursor:pointer; user-select:none; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .chart-wrap{ height:240px; min-height:240px; max-height:240px; width:100%; overflow:hidden; border-top:1px solid var(--line); padding-top:6px; }
+    #trendChart{ width:100%; height:100%; }
+
+    .table-panel{ flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:8px; padding:10px; }
+    .table-controls{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .table-controls .form-control, .table-controls .form-select{ height:34px; border-radius:10px; font-weight:850; font-size:.86rem; }
+    .btn-excel{ border-radius:10px; font-weight:770; margin-left:auto; }
+    .table-box{ flex:1 1 auto; min-height:0; overflow:auto; border-top:1px solid var(--line); }
+    table.table{ margin:0; font-size:.84rem; }
+    .table thead th{ position:sticky; top:0; background:#fff; z-index:2; border-bottom:1px solid var(--line); padding:.6rem .55rem; font-weight:950; white-space:nowrap; }
+    .table td{ padding:.6rem .55rem; border-bottom:1px solid var(--line); vertical-align:top; }
+    .mono{ font-variant-numeric:tabular-nums; }
+    tr.rowlink{ cursor:pointer; }
+    tr.rowlink:hover{ background:#f6f9ff; }
+    .badge-zone{ border-radius:999px; font-weight:950; padding:.28rem .55rem; font-size:.72rem; white-space:nowrap; }
+    .eye-btn{ width:28px;height:28px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; border:1px solid rgba(0,0,0,.10); background:#fff; cursor:pointer; font-weight:950; user-select:none; }
+    .eye-btn:hover{ filter:brightness(.98); }
+    .leaflet-control-attribution{ font-size:11px; }
+    .leaflet-container{ background:#eaf2f7; }
+    .pctBubble{
+      background: rgba(255,255,255,.92);
+      border: 2px solid rgba(11,43,58,.22);
+      border-radius: 999px;
+      box-shadow:0 10px 22px rgba(0,0,0,.18);
+      padding: 6px 10px;
+      display:flex; align-items:center; justify-content:center;
+      font-weight: 950; color: #0b2b3a; line-height:1;
+      min-width: 54px; min-height: 36px;
+      transform: translateZ(0);
+      pointer-events:auto;
+    }
+    .pctBubble small{ font-weight:850; opacity:.78; margin-left:2px; font-size:.78em; }
+    .pctBubble.dept{ border-width:3px; padding:7px 12px; min-width:60px; min-height:40px; }
+    .pctBubble.sede{ border-width:2px; padding:6px 10px; min-width:54px; min-height:36px; }
+    .provDot{ width:10px;height:10px; border-radius:999px; background:#0b2b3a; border:2px solid #fff; box-shadow:0 6px 14px rgba(0,0,0,.20); }
+    .modal-backdrop{ opacity:.35 !important; }
+
+    @page { size: A4 landscape; margin: 10mm; }
+    @media print{
+      body{ background:#fff; overflow:visible; }
+      .dash-shell{ height:auto; overflow:visible; padding:0; }
+      #btnGear, #btnExcel,
+      #selZona, #selDepartamento, #selSede, #chkVeriCooXY,
+      #txtSearch, #selTop, #selMetric,
+      #ddYearBtn, #ddMonthBtn{
+        display:none !important;
+      }
+      .cardx{ box-shadow:none; border:1px solid #d9dee5; }
+      .main-row{ grid-template-columns: 70% 30%; }
+      .table thead th{ position:static !important; }
+      .vdBrand{ position:static !important; transform:none !important; justify-content:center; margin:8px 0; }
+      .dd-panel{ display:none !important; }
+    }
+
+    #btnData, #btnAdmin, #btnGear, .btn-gear, .gearBtn, [data-role="data-admin"], [title="Gestión de data"]{
+      display:none !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="dash-shell">
+
+    <div class="dash-header">
+      <div>
+        <div class="dash-title">PROVEEDORES DE MINERAL</div>
+        <div class="dash-sub">Mapa de operaciones por proveedor</div>
+      </div>
+
+      <div id="vdBrand" class="vdBrand">
+        <img id="vdLogo" class="vdLogo" src="https://www.vetadorada.pe/img/logo_home.png" onerror="this.style.display='none'">
+        <div id="vdFallback" class="vdFallback">VetaDorada</div>
+      </div>
+
+      <div class="topbar">
+        <div id="btnGear" class="gear" style="display:none">⚙️</div>
+      </div>
+    </div>
+
+    <div class="kpi-row">
+      <div class="cardx kpi-card">
+        <div class="kpi-title">Filtro</div>
+        <div id="kpiFiltro" class="kpi-value">Todas</div>
+      </div>
+
+      <div class="cardx kpi-card">
+        <div class="kpi-title">Proveedores</div>
+        <div id="kpiProv" class="kpi-value mono">0</div>
+      </div>
+
+      <div class="cardx kpi-card">
+        <div id="kpiOpsTitle" class="kpi-title">Operaciones</div>
+        <div id="kpiOps" class="kpi-value mono">0</div>
+      </div>
+    </div>
+
+    <div class="main-row">
+      <div class="main-left">
+        <div class="cardx panel">
+          <div class="panel-head">
+            <div class="panel-title">Mapa (Perú)</div>
+
+            <div class="filters-row">
+              <select id="selZona" class="form-select" style="max-width:200px;">
+                <option value="">Todas las zonas</option>
+              </select>
+
+              <select id="selDepartamento" class="form-select" style="max-width:240px;">
+                <option value="">Todos los departamentos</option>
+              </select>
+
+              <select id="selSede" class="form-select" style="max-width:200px;">
+                <option value="">Todas las sedes</option>
+              </select>
+
+              <select id="selMapMetric" class="form-select" style="max-width:170px;">
+                <option value="PROV" selected>N° Proveedores</option>
+                <option value="OPS">OPS</option>
+                <option value="TMS">TMS</option>
+              </select>
+
+              <div class="form-check ms-1" style="display:flex;align-items:center;gap:8px;height:34px;">
+                <input class="form-check-input" type="checkbox" id="chkVeriCooXY" style="margin-top:0;">
+                <label class="form-check-label" for="chkVeriCooXY" style="font-weight:770;font-size:.86rem;color:var(--ink);"> X,Y </label>
+              </div>
+
+              <div class="legend">
+                <div class="legend-item"><span class="legend-dot" style="background:var(--zn)"></span>Norte</div>
+                <div class="legend-item"><span class="legend-dot" style="background:var(--zs)"></span>Sur</div>
+                <div class="legend-item"><span class="legend-dot" style="background:var(--zsa)"></span>Sur Arequipa</div>
+                <div class="legend-item"><span class="legend-dot" style="background:var(--na)"></span>No asignado</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="map-wrap">
+            <div id="map"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main-right">
+        <div class="cardx panel">
+          <div class="right-stack">
+
+            <div class="chart-card">
+              <div class="chart-head">
+                <div class="chart-title" id="chartTitle">TMS por mes</div>
+
+                <div class="chart-tools">
+                  <div class="dd" id="ddYear">
+                    <div class="dropbtn" id="ddYearBtn" title="Filtrar Año">Año: <span id="yearSummary">—</span> ▾</div>
+                    <div class="dd-panel" id="ddYearPanel">
+                      <div class="dd-title">Filtrar Año</div>
+                      <div class="dd-actions">
+                        <button class="btn btn-sm btn-outline-secondary" id="btnYearAll">Todos</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btnYearNone">Ninguno</button>
+                      </div>
+                      <div class="dd-list" id="yearList"></div>
+                    </div>
+                  </div>
+
+                  <div class="dd" id="ddMonth">
+                    <div class="dropbtn" id="ddMonthBtn" title="Filtrar Mes">Mes: <span id="monthSummary">—</span> ▾</div>
+                    <div class="dd-panel" id="ddMonthPanel">
+                      <div class="dd-title">Filtrar Mes</div>
+                      <div class="dd-actions">
+                        <button class="btn btn-sm btn-outline-secondary" id="btnMonthAll">Todos</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="btnMonthNone">Ninguno</button>
+                      </div>
+                      <div class="dd-list" id="monthList"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="chart-wrap">
+                <canvas id="trendChart"></canvas>
+              </div>
+            </div>
+
+            <div class="table-panel">
+              <div class="panel-title">Lista de Proveedores</div>
+
+              <div class="table-controls">
+                <input id="txtSearch" class="form-control" style="max-width:220px;" placeholder="Buscar proveedor / RUC">
+
+                <select id="selMetric" class="form-select" style="max-width:130px;">
+                  <option value="OPS">OPS</option>
+                  <option value="TMS" selected>TMS</option>
+                </select>
+
+                <select id="selTop" class="form-select" style="max-width:130px;">
+                  <option value="0">Todos</option>
+                  <option value="10">Top 10</option>
+                  <option value="20">Top 20</option>
+                  <option value="50">Top 50</option>
+                </select>
+
+                <button id="btnExcel" class="btn btn-outline-success btn-excel">Exportar Excel</button>
+              </div>
+
+              <div class="table-box">
+                <table class="table table-sm align-middle">
+                  <thead>
+                    <tr>
+                      <th style="width:18%">RUC</th>
+                      <th style="width:44%">Proveedor</th>
+                      <th style="width:14%">Sede</th>
+                      <th style="width:12%">Zona</th>
+                      <th id="thMetric" style="width:10%" class="text-end">TMS</th>
+                      <th style="width:6%" class="text-center">VeriMin</th>
+                    </tr>
+                  </thead>
+                  <tbody id="tbody"></tbody>
+                </table>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="modal fade" id="adminModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content" style="border-radius:14px;">
+        <div class="modal-header">
+          <h5 class="modal-title">⚙️ Gestión de Data</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="alert alert-secondary mb-3">
+            <div class="fw-bold">Fuente de datos</div>
+            <div class="small" id="dataFootprint"></div>
+          </div>
+
+          <div class="d-flex gap-2 flex-nowrap align-items-center">
+            <input type="file" id="fileExcel" class="form-control flex-grow-1" accept=".xlsx,.xls" multiple/>
+            <button id="btnLoadExcel" class="btn btn-primary flex-shrink-0">Cargar y Reemplazar</button>
+            <button id="btnClearLocal" class="btn btn-outline-danger flex-shrink-0">Borrar data local</button>
+          </div>
+
+          <div class="mt-3">
+            <div class="fw-bold">Log</div>
+            <pre id="adminLog" class="p-2" style="background:#0b2b3a;color:#fff;border-radius:10px;max-height:240px;overflow:auto;font-size:12px;"></pre>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <div class="small text-muted me-auto">Los datos quedan en este navegador.</div>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    const ADMIN_PIN   = "MVDjacob0";
+    const ADMIN_ENABLED = false; 
+    const LS_KEY_DATA = "PROMVD_DASH_DATA_V6";
+
+
+    const DASH_LINK_TOKEN = (new URL(window.location.href)).searchParams.get("t") || "";
+    function withToken(url){
+      if(!DASH_LINK_TOKEN) return url;
+      return url + (url.includes("?") ? "&" : "?") + "t=" + encodeURIComponent(DASH_LINK_TOKEN);
+    }
+
+    const PERU_DEPT_GEOJSON_URL =
+      "https://raw.githubusercontent.com/juaneladio/peru-geojson/master/peru_departamental_simple.geojson";
+
+    const Z_SEDE = {
+      "LAS LOMAS": "NORTE","TRUJILLO": "NORTE","CHIMBOTE": "NORTE","CARHUAMAYO": "NORTE",
+      "NAZCA": "SUR","HUANCA": "SUR","ABANCAY": "SUR","COLQUEMARCA": "SUR","JULIACA": "SUR",
+      "CHALA": "SUR AREQUIPA","ISPACAS": "SUR AREQUIPA","PEDREGAL": "SUR AREQUIPA","PEPAS": "SUR", "MISKY": "SUR", "CAJAMARCA": "NORTE" ,"SECOCHA": "SUR AREQUIPA"
+    };
+
+    const SEDE_DEP = {
+      "LAS LOMAS": "PIURA","TRUJILLO": "LA LIBERTAD","CHIMBOTE": "ANCASH","CARHUAMAYO": "JUNIN",
+      "NAZCA": "ICA","HUANCA": "AYACUCHO","ABANCAY": "APURIMAC","COLQUEMARCA": "CUSCO","JULIACA": "PUNO",
+      "CHALA": "AREQUIPA","CAJAMARCA": "CAJAMARCA", "PEPAS": "APURIMAC","MISKY": "AREQUIPA","ISPACAS": "AREQUIPA","PEDREGAL": "AREQUIPA","SECOCHA": "AREQUIPA"
+    };
+
+    const SEDE_COORDS = {
+      "LAS LOMAS": [-4.6510, -80.2520], "TRUJILLO": [-8.11599, -79.02998], "CHIMBOTE": [-9.0745, -78.5936], "CARHUAMAYO": [-10.9167, -76.0333],
+      "NAZCA": [-14.8300, -74.9400], "HUANCA": [-15.152281, -74.536101], "ABANCAY": [-13.6330, -72.8830], "COLQUEMARCA": [-14.2900, -72.0400], "JULIACA": [-15.4997, -70.1333],
+      "CHALA": [-15.8650, -74.2450], "ISPACAS": [-15.7400, -72.3100], "PEDREGAL": [-16.3510, -72.2170], "SECOCHA": [-16.2240, -73.6900]
+    };
+
+    const MONTHS_ES_FULL = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    const MONTHS_ES_ABBR = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+
+    function normStr(x){ x = String(x ?? "").replace(/\s+/g, " ").trim(); try{ x = x.normalize("NFD").replace(/[\u0300-\u036f]/g,""); }catch(e){} return x; }
+    function up(x){ return normStr(x).toUpperCase(); }
+    function zoneFromSede(sede){ const s = up(sede); return Z_SEDE[s] || "NO ASIGNADO"; }
+    function isHttpUrl(u){ return /^https?:\/\//i.test(String(u ?? "").trim()); }
+    function fmtInt(n){ return Number(n||0).toLocaleString("en-US"); }
+    function fmtNum2(n){ const x=Number(n||0); if(!isFinite(x)) return "0.00"; return x.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function round1(x){ const v=Number(x||0); return Math.round(v*10)/10; }
+    function fmtPct1(x){ const v=round1(x); return (v%1===0)?v.toFixed(0):v.toFixed(1); }
+    function esc(s){ return String(s ?? "").replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m])); }
+    function escAttr(s){ return esc(s).replace(/"/g, "&quot;"); }
+    function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+    function zoneColor(z){ if(z==="NORTE")return getCss("--zn"); if(z==="SUR")return getCss("--zs"); if(z==="SUR AREQUIPA")return getCss("--zsa"); return getCss("--na"); }
+    function badgeHTML(z){
+      if(z==="NORTE") return `<span class="badge-zone" style="background:${getCss("--zn")};color:#fff;">Zona Norte</span>`;
+      if(z==="SUR") return `<span class="badge-zone" style="background:${getCss("--zs")};color:#0b2b3a;">Zona Sur</span>`;
+      if(z==="SUR AREQUIPA") return `<span class="badge-zone" style="background:${getCss("--zsa")};color:#fff;">Zona Sur Arequipa</span>`;
+      return `<span class="badge-zone" style="background:${getCss("--na")};color:#0b2b3a;">No asignado</span>`;
+    }
+    function toNumberSafe(v){
+      if(v===null||v===undefined) return 0;
+      if(typeof v==="number" && isFinite(v)) return v;
+      const s=String(v).trim(); if(!s) return 0;
+      const cleaned=s.replace(/\s/g,"").replace(/,/g,"");
+      const n=Number(cleaned); return isFinite(n)?n:0;
+    }
+
+    function uniqueCarMap(rows){
+      const m=new Map();
+      for(let i=0;i<rows.length;i++){
+        const r=rows[i];
+        const k=normStr(r?.CAR||"");
+        const key = k ? k : (`__NO_CAR__${i}`);
+        if(!m.has(key)) m.set(key, r);
+      }
+      return m;
+    }
+    function uniqueCarCount(rows){
+      return uniqueCarMap(rows).size;
+    }
+    function sumTmsUniqueCar(rows){
+      let s=0;
+      for(const r of uniqueCarMap(rows).values()){
+        s += toNumberSafe(r?.TMS);
+      }
+      return s;
+    }
+    function sumImporteUniqueCar(rows){
+      let s=0;
+      for(const r of uniqueCarMap(rows).values()){
+        s += toNumberSafe(r?.IMPORTE);
+      }
+      return s;
+    }
+
+    function tryParseDate(v){
+      if(typeof v==="number" && isFinite(v)){
+        const epoch=new Date(Date.UTC(1899,11,30));
+        const d=new Date(epoch.getTime() + v*86400000);
+        if(!isNaN(d.getTime())) return d;
+      }
+      const s=String(v??"").trim(); if(!s) return null;
+      const iso=new Date(s); if(!isNaN(iso.getTime())) return iso;
+      const m1=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      if(m1){
+        const dd=parseInt(m1[1],10), mm=parseInt(m1[2],10);
+        let yy=parseInt(m1[3],10); if(yy<100) yy+=2000;
+        const d=new Date(yy,mm-1,dd); if(!isNaN(d.getTime())) return d;
+      }
+      return null;
+    }
+    function getYearMonthFromISO(iso){
+      if(!iso) return null;
+      const d=new Date(iso);
+      if(isNaN(d.getTime())) return null;
+      return { y:d.getFullYear(), m:d.getMonth()+1 };
+    }
+    function uniqueSorted(arr){
+      return Array.from(new Set(arr.filter(Boolean))).sort((a,b)=>String(a).localeCompare(String(b)));
+    }
+
+    const BASE_DATA = { last_update:"Sin data (cargar en ⚙️)", source_files:[], source_sheets:[], opsRows:[] };
+
+    async function idbOpen(){
+      return await new Promise((resolve, reject)=>{
+        const req = indexedDB.open("PROMVD_DASH_DB", 1);
+        req.onupgradeneeded = ()=>{
+          const db = req.result;
+          if(!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");
+        };
+        req.onsuccess = ()=> resolve(req.result);
+        req.onerror = ()=> reject(req.error || new Error("IndexedDB error"));
+      });
+    }
+
+    async function idbGet(key){
+      const db = await idbOpen();
+      return await new Promise((resolve, reject)=>{
+        const tx = db.transaction("kv", "readonly");
+        const st = tx.objectStore("kv");
+        const rq = st.get(key);
+        rq.onsuccess = ()=> resolve(rq.result || null);
+        rq.onerror = ()=> reject(rq.error || new Error("IndexedDB get error"));
+      });
+    }
+
+    async function idbSet(key, val){
+      const db = await idbOpen();
+      return await new Promise((resolve, reject)=>{
+        const tx = db.transaction("kv", "readwrite");
+        const st = tx.objectStore("kv");
+        const rq = st.put(val, key);
+        rq.onsuccess = ()=> resolve(true);
+        rq.onerror = ()=> reject(rq.error || new Error("IndexedDB set error"));
+      });
+    }
+
+    async function idbDel(key){
+      const db = await idbOpen();
+      return await new Promise((resolve, reject)=>{
+        const tx = db.transaction("kv", "readwrite");
+        const st = tx.objectStore("kv");
+        const rq = st.delete(key);
+        rq.onsuccess = ()=> resolve(true);
+        rq.onerror = ()=> reject(rq.error || new Error("IndexedDB delete error"));
+      });
+    }
+
+    async function loadDataAsync(){
+      // Rolex mode: data is served by backend as JSON (no Excel exposure)
+      const url = withToken("/api/data");
+      const resp = await fetch(url, {credentials:"include"});
+      if(!resp.ok){
+        throw new Error("No autorizado / data no disponible ("+resp.status+")");
+      }
+      const payload = await resp.json();
+      const rows = Array.isArray(payload?.opsRows) ? payload.opsRows : [];
+      // Normalize
+      rows.forEach(r=>{
+        if(r && typeof r.SEDE==="string") r.SEDE = r.SEDE.trim().toUpperCase();
+        if(r && typeof r.DEPARTAMENTO==="string") r.DEPARTAMENTO = r.DEPARTAMENTO.trim().toUpperCase();
+        if(r && (r.ZONA===undefined || r.ZONA===null)) r.ZONA="";
+        if(r && typeof r.FECHA==="string" && r.FECHA.length===10) r.FECHA = r.FECHA+"T00:00:00Z";
+        if(r && typeof r.TMS==="string") r.TMS = toNum(r.TMS);
+        if(r && typeof r.IMPORTE==="string") r.IMPORTE = toNum(r.IMPORTE);
+      });
+      DATA = { opsRows: rows, meta: payload?.meta || {} };
+      return DATA;
+    }
+
+    async function saveDataAsync(obj){
+      await idbSet(LS_KEY_DATA, obj);
+      try{
+        localStorage.setItem("PROMVD_DASH_META_V6", JSON.stringify({
+          last_update: obj?.last_update || "",
+          source_files: obj?.source_files || [],
+          source_sheets: obj?.source_sheets || []
+        }));
+      }catch(e){}
+    }
+
+    async function clearDataAsync(){
+      try{ await idbDel(LS_KEY_DATA); }catch(e){}
+      try{ localStorage.removeItem(LS_KEY_DATA); }catch(e){}
+      try{ localStorage.removeItem("PROMVD_DASH_META_V6"); }catch(e){}
+      DATA = structuredClone(BASE_DATA);
+    }
+
+    let DATA = structuredClone(BASE_DATA);
+    let deptGeoJson=null;
+
+    let filterZona="", filterDepartamento="", filterSede="", filterProviderRuc="";
+    let showVeriCooXY=false;
+    let metricMode="TMS";
+    let mapMetric="PROV";
+
+    let chartYearSelected=new Set();
+    let chartMonthsSelected=new Set([1,2,3,4,5,6,7,8,9,10,11,12]);
+    let availableYears=[];
+    let chartFiltersInitialized=false;
+
+    const selZona=document.getElementById("selZona");
+    const selDepartamento=document.getElementById("selDepartamento");
+    const selSede=document.getElementById("selSede");
+    const chkVeriCooXY=document.getElementById("chkVeriCooXY");
+    const txtSearch=document.getElementById("txtSearch");
+    const selTop=document.getElementById("selTop");
+    const selMetric=document.getElementById("selMetric");
+    const selMapMetric=document.getElementById("selMapMetric");
+
+    const kpiFiltro=document.getElementById("kpiFiltro");
+    const kpiProv=document.getElementById("kpiProv");
+    const kpiOpsTitle=document.getElementById("kpiOpsTitle");
+    const kpiOps=document.getElementById("kpiOps");
+
+    const thMetric=document.getElementById("thMetric");
+    const chartTitle=document.getElementById("chartTitle");
+    const dataFootprint=document.getElementById("dataFootprint");
+
+    const ddYearBtn=document.getElementById("ddYearBtn");
+    const ddYearPanel=document.getElementById("ddYearPanel");
+    const yearList=document.getElementById("yearList");
+    const yearSummary=document.getElementById("yearSummary");
+    const btnYearAll=document.getElementById("btnYearAll");
+    const btnYearNone=document.getElementById("btnYearNone");
+
+    const ddMonthBtn=document.getElementById("ddMonthBtn");
+    const ddMonthPanel=document.getElementById("ddMonthPanel");
+    const monthList=document.getElementById("monthList");
+    const monthSummary=document.getElementById("monthSummary");
+    const btnMonthAll=document.getElementById("btnMonthAll");
+    const btnMonthNone=document.getElementById("btnMonthNone");
+
+    (function brandInit(){
+      const img=document.getElementById("vdLogo");
+      const fallback=document.getElementById("vdFallback");
+      img.addEventListener("error", ()=>{ fallback.style.display="block"; });
+      img.addEventListener("load",  ()=>{ fallback.style.display="none"; });
+      document.getElementById("vdBrand").addEventListener("click", ()=>{ doResetAll(); });
+    })();
+
+    const map=L.map("map",{zoomControl:true}).setView([-9.35,-74.9],5.6);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18, attribution:"&copy; OpenStreetMap"}).addTo(map);
+
+    const deptLayerGroup=L.layerGroup().addTo(map);
+    const bubbleDeptLayer=L.layerGroup().addTo(map);
+    const bubbleSedeLayer=L.layerGroup().addTo(map);
+    const providersLayer=L.layerGroup().addTo(map);
+    let deptGeoLayer=null;
+
+    function deptStyle(feature){
+      const dep=up(feature?.properties?.NOMBDEP||"");
+      const z=deptZoneDominant(dep);
+      let fillOpacity=0.35, weight=2;
+      if(filterZona) fillOpacity=(z===filterZona)?0.45:0.08;
+      if(filterDepartamento){ fillOpacity=(dep===filterDepartamento)?0.55:0.08; weight=(dep===filterDepartamento)?3:2; }
+      return { color:"#0b2b3a", weight, opacity:0.85, fillColor:zoneColor(z), fillOpacity };
+    }
+
+    function attachDeptEvents(layer, feature){
+      const dep=up(feature?.properties?.NOMBDEP||"");
+      layer.on("mouseover", ()=>{ layer.setStyle({weight:3, fillOpacity:(filterDepartamento && dep!==filterDepartamento)?0.08:0.55}); });
+      layer.on("mouseout",  ()=>{ layer.setStyle(deptStyle(feature)); });
+      layer.on("click", ()=>{
+        filterDepartamento=dep; selDepartamento.value=dep;
+        filterSede=""; selSede.value="";
+        const z=deptZoneDominant(dep);
+        filterZona=(z==="NO ASIGNADO")?"":z; selZona.value=filterZona;
+        filterProviderRuc="";
+        renderAll(true);
+      });
+    }
+
+    async function loadDepartments(){
+      const res=await fetch(PERU_DEPT_GEOJSON_URL,{cache:"force-cache"});
+      if(!res.ok) throw new Error("No se pudo cargar GeoJSON de departamentos.");
+      deptGeoJson=await res.json();
+      try{
+        window.ALL_DEPS = uniqueSorted((deptGeoJson.features||[]).map(f=>up(f?.properties?.NOMBDEP||"")));
+        if(!window.ALL_DEPS.includes("CALLAO")) window.ALL_DEPS.push("CALLAO");
+      }catch(e){ window.ALL_DEPS = ["CALLAO"]; }
+
+      if(deptGeoLayer){ deptLayerGroup.removeLayer(deptGeoLayer); deptGeoLayer=null; }
+      deptGeoLayer=L.geoJSON(deptGeoJson,{ style:(f)=>deptStyle(f), onEachFeature:(feature,layer)=>attachDeptEvents(layer,feature) });
+      deptGeoLayer.addTo(deptLayerGroup);
+    }
+
+    function refreshDeptStyles(){
+      if(!deptGeoLayer) return;
+      deptGeoLayer.eachLayer(l=>{ l.setStyle(deptStyle(l.feature)); });
+    }
+
+    function deptBoundsByName(depName){
+      if(!deptGeoLayer) return null;
+      let bounds=null;
+      deptGeoLayer.eachLayer(l=>{
+        const dep=up(l.feature?.properties?.NOMBDEP||"");
+        if(dep===depName) bounds=l.getBounds();
+      });
+      return bounds;
+    }
+
+    function deptCenterByName(depName){
+      const b=deptBoundsByName(depName);
+      if(!b) return null;
+      return b.getCenter();
+    }
+
+    function findHeader(headers, candidates){
+      const norm=s=>up(s).replace(/\s+/g," ").trim();
+      const H=headers.map(h=>norm(h));
+      for(const c of candidates){
+        const cc=norm(c);
+        const i=H.indexOf(cc);
+        if(i>=0) return headers[i];
+      }
+      for(const c of candidates){
+        const cc=norm(c);
+        for(let i=0;i<H.length;i++){
+          if(H[i].includes(cc)) return headers[i];
+        }
+      }
+      return null;
+    }
+
+    function parseVeriCooXY(val){
+      const s=String(val??"").trim();
+      if(!s) return null;
+      const parts=s.split(",").map(x=>x.trim());
+      if(parts.length<2) return null;
+      const lon=Number(parts[0]), lat=Number(parts[1]);
+      if(!isFinite(lat)||!isFinite(lon)) return null;
+      return [lat,lon];
+    }
+
+    function parseSheetToOps(ws){
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:""});
+      if(!rows.length) return [];
+      const headers=Object.keys(rows[0]).map(h=>String(h).trim());
+
+      const hSede=findHeader(headers,["SEDE"]);
+      const hRuc=findHeader(headers,["RUC"]);
+      const hProv=findHeader(headers,["NOMBRES / RAZON SOCIAL","NOMBRES/ RAZON SOCIAL","NOMBRES/RAZON SOCIAL","RAZON SOCIAL","RAZÓN SOCIAL","PROVEEDOR"]);
+      const hVeriCoo=findHeader(headers,["VERICOOXY","VERICOO XY","COORDENADAS","COORDS","LONGITUD"]);
+      const hVerifMin=findHeader(headers,["VERIFMIN","VERIF MIN","VERIMIN","URL","LINK"]);
+      const hTms=findHeader(headers,["TMS","TM","TONELADAS","TONELADA","CANTIDAD TMS","CANTIDAD","PESO","PESO NETO","TMS NETO","TM NETO"]);
+      const hCar=findHeader(headers,["CAR","N° CAR","N CAR","COD CAR","CODIGO CAR","CÓDIGO CAR","N°CAR","N°CAR."]);
+      const hImporte=findHeader(headers,["IMPORTE","MONTO","IMPORTE TOTAL","MONTO TOTAL","TOTAL","IMP."]);
+      const hFecha = findHeader(headers, ["FECHA DE PAGO (TLC)","FECHA PAGO (TLC)","FECHA DE PAGO","FECHA PAGO"]) ||
+               findHeader(headers, ["FECHA","FECHA EMISION","FECHA DE EMISION","FEC EMISION","FECHA OPERACION","FEC OPERACION","FEC"]);
+
+      if(!hSede || !hRuc || !hProv){
+        return { _error:"No encontré headers SEDE/RUC/Proveedor en esta hoja.", ops:[] };
+      }
+
+      const opsRows=[];
+      for(const r of rows){
+        const sedeRaw=normStr(r[hSede]);
+        const ruc=normStr(r[hRuc]);
+        const prov=normStr(r[hProv]);
+        if(!sedeRaw || !ruc) continue;
+
+        const sede=up(sedeRaw);
+        const dep=SEDE_DEP[sede]?up(SEDE_DEP[sede]):"";
+        const z=zoneFromSede(sede);
+
+        const coords=hVeriCoo?parseVeriCooXY(r[hVeriCoo]):null;
+        const verif=hVerifMin?normStr(r[hVerifMin]):"";
+        const tms=hTms?toNumberSafe(r[hTms]):0;
+
+        const car = hCar ? normStr(r[hCar]) : "";
+        const importe = hImporte ? toNumberSafe(r[hImporte]) : 0;
+
+        let fecha=null;
+        if(hFecha){
+          const d=tryParseDate(r[hFecha]);
+          if(d) fecha=d.toISOString();
+        }
+
+        opsRows.push({
+          RUC:ruc, PROVEEDOR:prov, SEDE:sede, DEPARTAMENTO:dep, ZONA:z,
+          VeriCooXY:coords, VerifMin:verif, CAR:car, TMS:tms, IMPORTE:importe, FECHA:fecha
+        });
+      }
+      return { _error:null, ops:opsRows };
+    }
+
+    async function parseExcelFileAllRO(file){
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:"array"});
+      let roSheets=wb.SheetNames.filter(n=>/^RO/i.test(String(n||"").trim()));
+      if(roSheets.length===0) roSheets=[wb.SheetNames[0]];
+
+      const allOps=[], parsedSheets=[], sheetErrors=[];
+      for(const sheetName of roSheets){
+        const ws=wb.Sheets[sheetName];
+        if(!ws) continue;
+        const parsed=parseSheetToOps(ws);
+        parsedSheets.push(sheetName);
+        if(parsed && parsed._error){
+          sheetErrors.push(`${file.name} / ${sheetName}: ${parsed._error}`);
+          continue;
+        }
+        const ops=parsed?.ops||[];
+        for(const row of ops){
+          row.__SRC_FILE=file.name;
+          row.__SRC_SHEET=sheetName;
+        }
+        allOps.push(...ops);
+      }
+
+      return { fileName:file.name, sheetsParsed:parsedSheets, sheetErrors, opsRows:allOps };
+    }
+
+    function getFilteredOpsRows(){
+      let rows=DATA.opsRows.slice();
+
+      // --- Filtro de Tiempo (Año/Mes) gobierna TODO el dashboard ---
+      if(chartYearSelected.size===0 || chartMonthsSelected.size===0){
+        return [];
+      }
+
+      rows = rows.filter(r=>{
+        const ym=getYearMonthFromISO(r.FECHA);
+        if(!ym) return false;
+        if(!chartYearSelected.has(ym.y)) return false;
+        if(!chartMonthsSelected.has(ym.m)) return false;
+        return true;
+      });
+
+      if(filterZona) rows=rows.filter(x=>x.ZONA===filterZona);
+      if(filterDepartamento) rows=rows.filter(x=>x.DEPARTAMENTO===filterDepartamento);
+      if(filterSede) rows=rows.filter(x=>x.SEDE===filterSede);
+      if(filterProviderRuc) rows=rows.filter(x=>String(x.RUC)===String(filterProviderRuc));
+
+      const q=(txtSearch.value||"").trim().toLowerCase();
+      if(q){
+        rows=rows.filter(x=> String(x.RUC||"").toLowerCase().includes(q) || String(x.PROVEEDOR||"").toLowerCase().includes(q));
+      }
+      return rows;
+    }
+
+    function aggregateProviders(rowsOps){
+      // Agrupa por proveedor (RUC) pero deduplica operaciones por CAR
+      const map=new Map(); // ruc -> {carSet:Set, tmsSum, ...}
+      for(const r of rowsOps){
+        const k=String(r.RUC);
+        if(!k) continue;
+        if(!map.has(k)){
+          map.set(k,{
+            RUC:r.RUC, PROVEEDOR:r.PROVEEDOR, SEDE:r.SEDE, DEPARTAMENTO:r.DEPARTAMENTO, ZONA:r.ZONA,
+            carSet:new Set(),
+            OPS:0,
+            TMS:0,
+            IMPORTE:0,
+            VeriCooXY:r.VeriCooXY,
+            VerifMin:r.VerifMin
+          });
+        }
+        const cur=map.get(k);
+
+        if(!cur.VeriCooXY && r.VeriCooXY) cur.VeriCooXY=r.VeriCooXY;
+        if(!isHttpUrl(cur.VerifMin) && isHttpUrl(r.VerifMin)) cur.VerifMin=r.VerifMin;
+
+        const car=normStr(r.CAR||"");
+        const key=car?car:(`__NO_CAR__${cur.carSet.size}_${k}`);
+        if(!cur.carSet.has(key)){
+          cur.carSet.add(key);
+          cur.OPS += 1;
+          cur.TMS += toNumberSafe(r.TMS);
+          cur.IMPORTE += toNumberSafe(r.IMPORTE);
+        }
+      }
+
+      const arr=Array.from(map.values());
+      if(metricMode==="TMS") arr.sort((a,b)=>(b.TMS||0)-(a.TMS||0));
+      else arr.sort((a,b)=>(b.OPS||0)-(a.OPS||0));
+      return arr;
+    }
+
+    function applyTop(arr){
+      const top=parseInt(selTop.value,10);
+      if(top && top>0) return arr.slice(0,top);
+      return arr;
+    }
+
+    function buildDeptStats(rowsOps){
+      const map=new Map();
+      for(let i=0;i<rowsOps.length;i++){
+        const r=rowsOps[i];
+        const dep=r.DEPARTAMENTO||"";
+        if(!dep) continue;
+        if(!map.has(dep)){
+          map.set(dep,{ DEPARTAMENTO:dep, provSet:new Set(), carSet:new Set(), tmsSum:0, zoneCount:new Map() });
+        }
+        const d=map.get(dep);
+
+        if(r.RUC) d.provSet.add(r.RUC);
+
+        const car=normStr(r.CAR||"");
+        const carKey=car?car:(`__NO_CAR__${i}`);
+        const isNewCar=!d.carSet.has(carKey);
+        if(isNewCar){
+          d.carSet.add(carKey);
+          d.tmsSum += toNumberSafe(r.TMS);
+
+          const z=r.ZONA||"NO ASIGNADO";
+          if(!d.zoneCount.has(z)) d.zoneCount.set(z,0);
+          d.zoneCount.set(z, d.zoneCount.get(z)+1);
+        }
+      }
+
+      const out=[];
+      for(const [dep,d] of map.entries()){
+        let domZ="NO ASIGNADO", best=-1;
+        for(const [z,c] of d.zoneCount.entries()){
+          if(c>best){ best=c; domZ=z; }
+        }
+        out.push({ DEPARTAMENTO:dep, PROV_COUNT:d.provSet.size, OPS_COUNT:d.carSet.size, TMS_SUM:d.tmsSum, DOM_ZONE:domZ });
+      }
+      out.sort((a,b)=>(b.PROV_COUNT||0)-(a.PROV_COUNT||0));
+      return out;
+    }
+
+    function buildSedeStats(rowsOps){
+      const map=new Map();
+      for(let i=0;i<rowsOps.length;i++){
+        const r=rowsOps[i];
+        const sede=r.SEDE||"";
+        if(!sede) continue;
+        if(!map.has(sede)){
+          map.set(sede,{
+            SEDE:sede,
+            DEPARTAMENTO:r.DEPARTAMENTO||(SEDE_DEP[sede]?up(SEDE_DEP[sede]):""),
+            ZONA:r.ZONA||zoneFromSede(sede),
+            provSet:new Set(),
+            carSet:new Set(),
+            tmsSum:0
+          });
+        }
+        const s=map.get(sede);
+        if(r.RUC) s.provSet.add(r.RUC);
+
+        const car=normStr(r.CAR||"");
+        const carKey=car?car:(`__NO_CAR__${i}`);
+        if(!s.carSet.has(carKey)){
+          s.carSet.add(carKey);
+          s.tmsSum += toNumberSafe(r.TMS);
+        }
+      }
+
+      const out=[];
+      for(const [sede,s] of map.entries()){
+        out.push({ SEDE:s.SEDE, DEPARTAMENTO:s.DEPARTAMENTO, ZONA:s.ZONA, PROV_COUNT:s.provSet.size, OPS_COUNT:s.carSet.size, TMS_SUM:s.tmsSum });
+      }
+      out.sort((a,b)=>(b.PROV_COUNT||0)-(a.PROV_COUNT||0));
+      return out;
+    }
+
+    function getTimeFilteredAllRows(){
+      let rows = DATA.opsRows.slice();
+
+      if(chartYearSelected.size===0 || chartMonthsSelected.size===0) return [];
+
+      rows = rows.filter(r=>{
+        const ym=getYearMonthFromISO(r.FECHA);
+        if(!ym) return false;
+        if(!chartYearSelected.has(ym.y)) return false;
+        if(!chartMonthsSelected.has(ym.m)) return false;
+        return true;
+      });
+
+      return rows;
+    }
+
+    function getFilteredOpsRowsForDeptColoring(){
+      let rows=DATA.opsRows.slice();
+
+      if(chartYearSelected.size===0 || chartMonthsSelected.size===0){
+        return [];
+      }
+      rows = rows.filter(r=>{
+        const ym=getYearMonthFromISO(r.FECHA);
+        if(!ym) return false;
+        if(!chartYearSelected.has(ym.y)) return false;
+        if(!chartMonthsSelected.has(ym.m)) return false;
+        return true;
+      });
+
+      if(filterZona) rows=rows.filter(x=>x.ZONA===filterZona);
+      return rows;
+    }
+
+    function deptZoneDominant(dep){
+      const rows=getFilteredOpsRowsForDeptColoring();
+      const stats=buildDeptStats(rows);
+      const x=stats.find(d=>d.DEPARTAMENTO===dep);
+      return x ? (x.DOM_ZONE||"NO ASIGNADO") : "NO ASIGNADO";
+    }
+
+    function makePctIcon(pct, cls){
+      const html=`<div class="pctBubble ${cls}">${esc(fmtPct1(pct))}<small>%</small></div>`;
+      return L.divIcon({ html, className:"", iconSize:null });
+    }
+
+    function clearMapOverlays(){
+      bubbleDeptLayer.clearLayers();
+      bubbleSedeLayer.clearLayers();
+      providersLayer.clearLayers();
+    }
+
+    function renderProviderPoints(rowsOps, recenter, preferNation, forceSingle=false){
+      providersLayer.clearLayers();
+
+      const providersAgg=aggregateProviders(rowsOps);
+      let list=providersAgg;
+      const HARD_LIMIT=preferNation?2500:6000;
+      if(list.length>HARD_LIMIT) list=list.slice(0,HARD_LIMIT);
+
+      let bounds=[];
+      for(const p of list){
+        const ll=p.VeriCooXY;
+        if(!ll) continue;
+
+        const icon=L.divIcon({ className:"", html:`<div class="provDot"></div>`, iconSize:[10,10], iconAnchor:[5,5] });
+        const m=L.marker(ll,{ icon, riseOnHover:true });
+
+        const tipHover=`
+          <div style="font-weight:950;color:#0b2b3a;">${esc(p.PROVEEDOR||"")}</div>
+          <div style="font-size:.84rem;">
+            RUC: <b>${esc(p.RUC)}</b><br/>
+            Sede: <b>${esc(p.SEDE)}</b><br/>
+            Dep.: <b>${esc(p.DEPARTAMENTO||"")}</b><br/>
+            Ops (CAR): <b>${fmtInt(p.OPS||0)}</b><br/>
+            TMS (CAR): <b>${fmtNum2(p.TMS||0)}</b>
+          </div>
+        `;
+        m.bindTooltip(tipHover,{ direction:"top", opacity:0.95 });
+
+        const ver=isHttpUrl(p.VerifMin)
+          ? `<a href="${escAttr(p.VerifMin)}" target="_blank" rel="noopener">Ver: VerifMin</a>`
+          : `<span style="color:#6c757d;">Ver: VerifMin</span>`;
+
+        const pop=`
+          <div style="min-width:220px;">
+            <div style="font-weight:950;color:#0b2b3a;margin-bottom:4px;">${esc(p.PROVEEDOR||"")}</div>
+            <div style="font-size:.84rem;">
+              RUC: <b>${esc(p.RUC)}</b><br/>
+              Sede: <b>${esc(p.SEDE)}</b><br/>
+              Dep.: <b>${esc(p.DEPARTAMENTO||"")}</b><br/>
+              Ops (CAR): <b>${fmtInt(p.OPS||0)}</b><br/>
+              TMS (CAR): <b>${fmtNum2(p.TMS||0)}</b><br/>
+              ${ver}
+            </div>
+          </div>
+        `;
+        m.bindPopup(pop,{ closeButton:true, autoPan:true });
+
+        providersLayer.addLayer(m);
+        bounds.push(ll);
+
+        if(forceSingle) break;
+      }
+
+      if(recenter){
+        if(forceSingle){
+          const first=bounds[0];
+          if(first){ map.flyTo(first,12,{duration:0.7}); }
+          else{
+            const sede=filterSede || (providersAgg[0]?.SEDE||"");
+            const ll2=SEDE_COORDS[sede];
+            if(ll2) map.flyTo(ll2,9,{duration:0.7});
+          }
+          return;
+        }
+
+        if(filterSede){
+          const ll=SEDE_COORDS[filterSede] || bounds[0];
+          if(ll) map.flyTo(ll,9,{duration:0.7});
+          return;
+        }
+
+        if(bounds.length) map.fitBounds(L.latLngBounds(bounds),{padding:[24,24]});
+        else map.setView([-9.35,-74.9],5.6);
+      }
+    }
+
+    function renderMode0_Nacional(recenter){
+      clearMapOverlays();
+
+      const rows=getFilteredOpsRows();
+      const deptStats=buildDeptStats(rows);
+
+      const totalProv = new Set(rows.map(r=>String(r.RUC||""))).size || 0;
+      const totalOps  = uniqueCarCount(rows) || 0;
+      const totalTms  = sumTmsUniqueCar(rows);
+
+      const totalMetric =
+        (mapMetric==="PROV") ? totalProv :
+        (mapMetric==="OPS")  ? totalOps  :
+        totalTms;
+
+      if(totalMetric>0){
+        for(const d of deptStats){
+          const dep=d.DEPARTAMENTO;
+          const center=deptCenterByName(dep);
+          if(!center) continue;
+
+          const num =
+            (mapMetric==="PROV") ? d.PROV_COUNT :
+            (mapMetric==="OPS")  ? d.OPS_COUNT  :
+            d.TMS_SUM;
+
+          const pct=(num/totalMetric)*100;
+          const metricLabel = (mapMetric==="PROV") ? "Proveedores" : (mapMetric==="OPS") ? "OPS" : "TMS";
+
+          const m=L.marker(center,{ icon:makePctIcon(pct,"dept"), interactive:true });
+
+          const tip=`
+            <div style="font-weight:950;color:#0b2b3a;">${esc(dep)}</div>
+            <div style="font-size:.84rem;">
+              Zona: <b>${esc(d.DOM_ZONE||"NO ASIGNADO")}</b><br/>
+              Operaciones (CAR): <b>${fmtInt(d.OPS_COUNT)}</b><br/>
+              TMS (CAR): <b>${fmtNum2(d.TMS_SUM)}</b><br/>
+              Proveedores (RUC): <b>${fmtInt(d.PROV_COUNT)}</b><br/>
+              Participación (${esc(metricLabel)}): <b>${esc(fmtPct1(pct))}%</b>
+            </div>
+          `;
+          m.bindTooltip(tip,{direction:"top", opacity:0.95, sticky:true});
+
+          m.on("click", ()=>{
+            filterDepartamento=dep; selDepartamento.value=dep;
+            filterSede=""; selSede.value="";
+            const z=deptZoneDominant(dep);
+            filterZona=(z==="NO ASIGNADO")?"":z; selZona.value=filterZona;
+            filterProviderRuc="";
+            renderAll(true);
+          });
+
+          bubbleDeptLayer.addLayer(m);
+        }
+      }
+
+      if(showVeriCooXY){
+        renderProviderPoints(rows, recenter, true);
+      }else if(recenter){
+        map.setView([-9.35,-74.9],5.6);
+      }
+    }
+
+    function renderMode1_Departamento(recenter){
+      clearMapOverlays();
+      const rows=getFilteredOpsRows();
+      const dept=filterDepartamento;
+
+      if(!dept){ renderMode0_Nacional(recenter); return; }
+
+      const rowsNationBase = getTimeFilteredAllRows();
+      const rowsNation = filterZona ? rowsNationBase.filter(r=>r.ZONA===filterZona) : rowsNationBase;
+
+      const totalProvNation = new Set(rowsNation.map(r=>String(r.RUC||""))).size || 0;
+      const totalOpsNation  = uniqueCarCount(rowsNation) || 0;
+      const totalTmsNation  = sumTmsUniqueCar(rowsNation);
+
+      const deptProv = new Set(rows.map(r=>String(r.RUC||""))).size || 0;
+      const deptOps  = uniqueCarCount(rows) || 0;
+      const deptTms  = sumTmsUniqueCar(rows);
+
+      const totalMetricNation =
+        (mapMetric==="PROV") ? totalProvNation :
+        (mapMetric==="OPS")  ? totalOpsNation  :
+        totalTmsNation;
+
+      const deptMetric =
+        (mapMetric==="PROV") ? deptProv :
+        (mapMetric==="OPS")  ? deptOps  :
+        deptTms;
+
+      const pctDeptReal = totalMetricNation ? (deptMetric/totalMetricNation)*100 : 0;
+
+      const sedeStatsAll=buildSedeStats(rows).filter(s=>s.DEPARTAMENTO===dept);
+      const deptMetricSafe = deptMetric || 1;
+
+      for(const s of sedeStatsAll){
+        const sede=s.SEDE;
+        const ll=SEDE_COORDS[sede] || null;
+        if(!ll) continue;
+
+        const sedeMetric =
+          (mapMetric==="PROV") ? s.PROV_COUNT :
+          (mapMetric==="OPS")  ? s.OPS_COUNT  :
+          s.TMS_SUM;
+
+        const pctSede=(sedeMetric/deptMetricSafe)*pctDeptReal;
+
+        const metricLabel = (mapMetric==="PROV") ? "Proveedores" : (mapMetric==="OPS") ? "OPS" : "TMS";
+        const m=L.marker(ll,{ icon:makePctIcon(pctSede,"sede"), interactive:true });
+
+        const tip=`
+          <div style="font-weight:950;color:#0b2b3a;">${esc(sede)}</div>
+          <div style="font-size:.84rem;">
+            Dep.: <b>${esc(dept)}</b><br/>
+            Zona: <b>${esc(s.ZONA||"NO ASIGNADO")}</b><br/>
+            Operaciones (CAR): <b>${fmtInt(s.OPS_COUNT)}</b><br/>
+            TMS (CAR): <b>${fmtNum2(s.TMS_SUM)}</b><br/>
+            Proveedores (RUC): <b>${fmtInt(s.PROV_COUNT)}</b><br/>
+            Participación real (${esc(metricLabel)}): <b>${esc(fmtPct1(pctSede))}%</b>
+          </div>
+        `;
+        m.bindTooltip(tip,{direction:"top", opacity:0.95, sticky:true});
+
+        m.on("click", ()=>{
+          filterSede=sede; selSede.value=sede;
+          filterProviderRuc="";
+          renderAll(true);
+        });
+
+        bubbleSedeLayer.addLayer(m);
+      }
+
+      if(recenter){
+        const b=deptBoundsByName(dept);
+        if(b) map.fitBounds(b,{padding:[24,24]});
+      }
+
+      if(showVeriCooXY){
+        renderProviderPoints(rows,false,false);
+      }
+    }
+
+    function renderMode2_Sede(recenter){
+      clearMapOverlays();
+      const rows=getFilteredOpsRows();
+      if(!filterSede){
+        if(filterDepartamento) renderMode1_Departamento(recenter);
+        else renderMode0_Nacional(recenter);
+        return;
+      }
+      renderProviderPoints(rows,recenter,false);
+    }
+
+    function renderMode3_Proveedor(recenter){
+      clearMapOverlays();
+      const rows=getFilteredOpsRows();
+      renderProviderPoints(rows,recenter,false,true);
+    }
+
+    function renderMap(recenter){
+      refreshDeptStyles();
+      if(filterProviderRuc){ renderMode3_Proveedor(recenter); return; }
+      if(filterSede){ renderMode2_Sede(recenter); return; }
+      if(filterDepartamento){ renderMode1_Departamento(recenter); return; }
+      renderMode0_Nacional(recenter);
+    }
+
+    function renderTable(){
+      const rowsOps=getFilteredOpsRows();
+      let providersAgg=aggregateProviders(rowsOps);
+      providersAgg=applyTop(providersAgg);
+
+      const tbody=document.getElementById("tbody");
+      tbody.innerHTML=providersAgg.map(p=>{
+        const eye=isHttpUrl(p.VerifMin)
+          ? `<span class="eye-btn" title="Ver VeriMin" data-eye="${escAttr(p.VerifMin)}">👁️</span>`
+          : `<span style="color:#adb5bd;font-weight:950;">—</span>`;
+
+        const metricValue=(metricMode==="TMS") ? fmtNum2(p.TMS||0) : fmtInt(p.OPS||0);
+
+        return `
+          <tr class="rowlink" data-ruc="${escAttr(p.RUC)}">
+            <td class="mono">${esc(p.RUC)}</td>
+            <td>${esc(p.PROVEEDOR)}</td>
+            <td>${esc(p.SEDE)}</td>
+            <td>${badgeHTML(p.ZONA)}</td>
+            <td class="text-end mono">${metricValue}</td>
+            <td class="text-center">${eye}</td>
+          </tr>
+        `;
+      }).join("");
+
+      [...tbody.querySelectorAll("tr.rowlink")].forEach(tr=>{
+        tr.addEventListener("click",(ev)=>{
+          const eyeEl=ev.target?.closest?.(".eye-btn");
+          if(eyeEl) return;
+
+          const ruc=tr.getAttribute("data-ruc");
+          if(!ruc) return;
+
+          filterProviderRuc=ruc;
+
+          const exists=DATA.opsRows.some(x => String(x.RUC)===String(ruc) &&
+            (!filterZona || x.ZONA===filterZona) &&
+            (!filterDepartamento || x.DEPARTAMENTO===filterDepartamento) &&
+            (!filterSede || x.SEDE===filterSede)
+          );
+          if(!exists){
+            filterZona=""; filterDepartamento=""; filterSede="";
+            selZona.value=""; selDepartamento.value=""; selSede.value="";
+          }
+
+          renderAll(true);
+        });
+
+        tr.addEventListener("dblclick", ()=>{
+          filterProviderRuc="";
+          renderAll(true);
+        });
+      });
+
+      [...tbody.querySelectorAll(".eye-btn")].forEach(btn=>{
+        btn.addEventListener("click",(ev)=>{
+          ev.stopPropagation();
+          const u=btn.getAttribute("data-eye");
+          if(u && isHttpUrl(u)) window.open(u,"_blank","noopener");
+        });
+      });
+    }
+
+    function renderKPI(){
+      const rows=getFilteredOpsRows();
+
+      const provCount=new Set(rows.map(r=>String(r.RUC||""))).size || 0;     // RUC únicos
+      const opsCount=uniqueCarCount(rows) || 0;                              // CAR únicos
+      const tmsTotal=sumTmsUniqueCar(rows);                                  // TMS por CAR único
+
+      let filtro="Todas";
+      if(filterProviderRuc) filtro=`Proveedor ${filterProviderRuc}`;
+      else if(filterSede) filtro=`Sede ${filterSede}`;
+      else if(filterDepartamento) filtro=`Departamento ${filterDepartamento}`;
+      else if(filterZona) filtro=`Zona ${filterZona}`;
+
+      kpiFiltro.textContent=filtro;
+      if(filtro.length>18) kpiFiltro.classList.add("bigtext"); else kpiFiltro.classList.remove("bigtext");
+
+      kpiProv.textContent=fmtInt(provCount);
+
+      if(metricMode==="TMS"){
+        kpiOpsTitle.textContent="TMS";
+        kpiOps.textContent=fmtNum2(tmsTotal);
+      }else{
+        kpiOpsTitle.textContent="Operaciones";
+        kpiOps.textContent=fmtInt(opsCount);
+      }
+
+      const stamp=DATA.last_update||"—";
+      const files=(DATA.source_files && DATA.source_files.length) ? DATA.source_files.join(", ") : "—";
+      const sheets=(DATA.source_sheets && DATA.source_sheets.length) ? DATA.source_sheets.join(", ") : "—";
+
+      dataFootprint.innerHTML =
+        `• Archivo(s): <b>${esc(files)}</b><br/>` +
+        `• Hoja(s): <b>${esc(sheets)}</b><br/>` +
+        `• Data: <b>${esc(stamp)}</b><br/>` +
+        `• Persistencia: se guarda en <b>IndexedDB</b> (almacenamiento del navegador) y queda al reabrir el HTML.<br/>` +
+        `• Cargar Excel reemplaza la data anterior.`;
+    }
+
+    function normalizeSelects(){
+      let base=DATA.opsRows.slice();
+
+      if(chartYearSelected.size===0 || chartMonthsSelected.size===0){
+        base = [];
+      }else{
+        base = base.filter(r=>{
+          const ym=getYearMonthFromISO(r.FECHA);
+          if(!ym) return false;
+          if(!chartYearSelected.has(ym.y)) return false;
+          if(!chartMonthsSelected.has(ym.m)) return false;
+          return true;
+        });
+      }
+
+      const zones=uniqueSorted(base.map(r=>r.ZONA || "NO ASIGNADO"));
+      selZona.innerHTML=`<option value="">Todas las zonas</option>` + zones.map(z=>`<option value="${escAttr(z)}">Zona ${esc(z)}</option>`).join("");
+      if(filterZona && zones.includes(filterZona)) selZona.value=filterZona; else if(filterZona){ filterZona=""; selZona.value=""; }
+
+      let depBase=base;
+      if(filterZona) depBase=depBase.filter(r=>r.ZONA===filterZona);
+
+      const deps=uniqueSorted(depBase.map(r=>r.DEPARTAMENTO||""));
+      selDepartamento.innerHTML=`<option value="">Todos los departamentos</option>` + deps.map(d=>`<option value="${escAttr(d)}">${esc(d)}</option>`).join("");
+      if(filterDepartamento && deps.includes(filterDepartamento)) selDepartamento.value=filterDepartamento; else if(filterDepartamento){ filterDepartamento=""; selDepartamento.value=""; }
+
+      let sedeBase=base;
+      if(filterZona) sedeBase=sedeBase.filter(r=>r.ZONA===filterZona);
+      if(filterDepartamento) sedeBase=sedeBase.filter(r=>r.DEPARTAMENTO===filterDepartamento);
+
+      const sedes=uniqueSorted(sedeBase.map(r=>r.SEDE||""));
+      selSede.innerHTML=`<option value="">Todas las sedes</option>` + sedes.map(s=>`<option value="${escAttr(s)}">${esc(s)}</option>`).join("");
+      if(filterSede && sedes.includes(filterSede)) selSede.value=filterSede; else if(filterSede){ filterSede=""; selSede.value=""; }
+    }
+
+    function closeAllDropdowns(){
+      ddYearPanel.classList.remove("show");
+      ddMonthPanel.classList.remove("show");
+    }
+
+    function setSummaryText(){
+      const years=Array.from(chartYearSelected).sort((a,b)=>a-b);
+      if(years.length===0) yearSummary.textContent="—";
+      else if(years.length<=2) yearSummary.textContent=years.join(", ");
+      else yearSummary.textContent=`${years.length} años`;
+
+      const ms=Array.from(chartMonthsSelected).sort((a,b)=>a-b);
+      if(ms.length===0) monthSummary.textContent="—";
+      else if(ms.length===12) monthSummary.textContent="Todos";
+      else if(ms.length<=3) monthSummary.textContent=ms.map(m=>MONTHS_ES_FULL[m-1]).join(", ");
+      else monthSummary.textContent=`${ms.length} meses`;
+    }
+
+    function buildChartFilterLists(){
+      const years=[];
+      for(const r of DATA.opsRows){
+        const ym=getYearMonthFromISO(r.FECHA);
+        if(ym) years.push(ym.y);
+      }
+      const yUnique=uniqueSorted(years).map(Number).filter(n=>isFinite(n)).sort((a,b)=>a-b);
+      availableYears = yUnique.slice();
+
+      if(!chartFiltersInitialized){
+        chartYearSelected = new Set(yUnique);
+        chartMonthsSelected = new Set([1,2,3,4,5,6,7,8,9,10,11,12]);
+        chartFiltersInitialized = true;
+      }
+
+      yearList.innerHTML=yUnique.map(y=>{
+        const id=`y_${y}`;
+        const checked=chartYearSelected.has(y) ? "checked" : "";
+        return `
+          <div class="dd-item" data-y="${y}">
+            <input type="checkbox" id="${id}" ${checked}/>
+            <label for="${id}">${esc(String(y))}</label>
+          </div>
+        `;
+      }).join("");
+
+      [...yearList.querySelectorAll(".dd-item")].forEach(div=>{
+        div.addEventListener("click",(ev)=>{
+          const y=Number(div.getAttribute("data-y"));
+          const cb=div.querySelector("input");
+          if(ev.target && ev.target.tagName.toLowerCase()!=="input") cb.checked=!cb.checked;
+          if(cb.checked) chartYearSelected.add(y); else chartYearSelected.delete(y);
+          setSummaryText(); renderAll(false);
+        });
+        div.querySelector("input")?.addEventListener("change", ()=>{
+          const y=Number(div.getAttribute("data-y"));
+          const cb=div.querySelector("input");
+          if(cb.checked) chartYearSelected.add(y); else chartYearSelected.delete(y);
+          setSummaryText(); renderAll(false);
+        });
+      });
+
+      monthList.innerHTML=MONTHS_ES_FULL.map((name, idx)=>{
+        const m=idx+1;
+        const id=`m_${m}`;
+        const checked=chartMonthsSelected.has(m) ? "checked" : "";
+        return `
+          <div class="dd-item" data-m="${m}">
+            <input type="checkbox" id="${id}" ${checked}/>
+            <label for="${id}">${esc(name)}</label>
+          </div>
+        `;
+      }).join("");
+
+      [...monthList.querySelectorAll(".dd-item")].forEach(div=>{
+        div.addEventListener("click",(ev)=>{
+          const m=Number(div.getAttribute("data-m"));
+          const cb=div.querySelector("input");
+          if(ev.target && ev.target.tagName.toLowerCase()!=="input") cb.checked=!cb.checked;
+          if(cb.checked) chartMonthsSelected.add(m); else chartMonthsSelected.delete(m);
+          setSummaryText(); renderAll(false);
+        });
+        div.querySelector("input")?.addEventListener("change", ()=>{
+          const m=Number(div.getAttribute("data-m"));
+          const cb=div.querySelector("input");
+          if(cb.checked) chartMonthsSelected.add(m); else chartMonthsSelected.delete(m);
+          setSummaryText(); renderAll(false);
+        });
+      });
+
+      setSummaryText();
+    }
+
+    ddYearBtn.addEventListener("click",(ev)=>{
+      ev.stopPropagation();
+      const open=ddYearPanel.classList.contains("show");
+      closeAllDropdowns();
+      if(!open) ddYearPanel.classList.add("show");
+    });
+    ddMonthBtn.addEventListener("click",(ev)=>{
+      ev.stopPropagation();
+      const open=ddMonthPanel.classList.contains("show");
+      closeAllDropdowns();
+      if(!open) ddMonthPanel.classList.add("show");
+    });
+    document.addEventListener("click", ()=>closeAllDropdowns());
+    ddYearPanel.addEventListener("click",(ev)=>ev.stopPropagation());
+    ddMonthPanel.addEventListener("click",(ev)=>ev.stopPropagation());
+
+    btnYearAll.addEventListener("click", ()=>{
+      const ys=[...yearList.querySelectorAll(".dd-item")].map(d=>Number(d.getAttribute("data-y"))).filter(n=>isFinite(n));
+      chartYearSelected=new Set(ys);
+      [...yearList.querySelectorAll("input")].forEach(cb=>cb.checked=true);
+      setSummaryText(); renderAll(false);
+    });
+    btnYearNone.addEventListener("click", ()=>{
+      chartYearSelected.clear();
+      [...yearList.querySelectorAll("input")].forEach(cb=>cb.checked=false);
+      setSummaryText(); renderAll(false);
+    });
+
+    btnMonthAll.addEventListener("click", ()=>{
+      chartMonthsSelected=new Set([1,2,3,4,5,6,7,8,9,10,11,12]);
+      [...monthList.querySelectorAll("input")].forEach(cb=>cb.checked=true);
+      setSummaryText(); renderAll(false);
+    });
+    btnMonthNone.addEventListener("click", ()=>{
+      chartMonthsSelected.clear();
+      [...monthList.querySelectorAll("input")].forEach(cb=>cb.checked=false);
+      setSummaryText(); renderAll(false);
+    });
+
+    let chart=null;
+
+    function buildMonthSeriesFixed(rowsOps){
+      const series=[];
+      for(let m=1;m<=12;m++) series.push({ m, OPS:0, TMS:0 });
+
+      const reps = uniqueCarMap(rowsOps).values();
+      for(const r of reps){
+        const ym=getYearMonthFromISO(r.FECHA);
+        if(!ym) continue;
+        const idx=ym.m-1;
+        series[idx].OPS += 1;
+        series[idx].TMS += toNumberSafe(r.TMS);
+      }
+      return series;
+    }
+
+    function renderChart(){
+      const rows=getFilteredOpsRows();
+      const series=buildMonthSeriesFixed(rows);
+
+      const labels = MONTHS_ES_ABBR.map(m => m.charAt(0).toUpperCase()+m.slice(1));
+      const data=series.map(x => metricMode==="TMS" ? x.TMS : x.OPS);
+
+      if(metricMode==="TMS"){ chartTitle.textContent="TMS por mes"; thMetric.textContent="TMS"; }
+      else{ chartTitle.textContent="OPS por mes"; thMetric.textContent="Ops"; }
+
+      const ctx=document.getElementById("trendChart").getContext("2d");
+
+      if(Chart && ChartDataLabels){
+        if(!Chart.registry.plugins.get("datalabels")){
+          Chart.register(ChartDataLabels);
+        }
+      }
+
+      if(chart){
+        chart.data.labels=labels;
+        chart.data.datasets[0].data=data;
+        chart.data.datasets[0].label=(metricMode==="TMS")?"TMS":"OPS";
+        chart.update();
+        return;
+      }
+
+      chart=new Chart(ctx,{
+        type:"line",
+        data:{
+          labels,
+          datasets:[{
+            label:(metricMode==="TMS")?"TMS":"OPS",
+            data,
+            tension:0.35,
+            fill:true,
+            pointRadius:3,
+            pointHoverRadius:5,
+            borderWidth:2
+          }]
+        },
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          layout:{ padding:{ top:18, right:34, left:10, bottom:0 } },
+          plugins:{
+            legend:{ display:false },
+            tooltip:{
+              callbacks:{
+                label:(context)=>{
+                  const v=context.parsed.y;
+                  return (metricMode==="TMS") ? ` TMS: ${fmtNum2(v)}` : ` OPS: ${fmtInt(v)}`;
+                }
+              }
+            },
+            datalabels:{
+              anchor:"end",
+              align:"top", 
+              offset:6,
+              clamp:true,
+              clip:false,
+              font:{ weight:"400", size:10 },
+              formatter:(v)=>{
+                const n=Number(v||0);
+                if(!n) return "";
+                return (metricMode==="TMS") ? fmtNum2(n) : fmtInt(n);
+              }
+            }
+          },
+          scales:{
+            x:{ grid:{ display:false }, ticks:{ maxRotation:0, autoSkip:false } },
+            y:{
+              grid:{ color:"rgba(0,0,0,.08)" },
+              ticks:{ callback:(v)=> (metricMode==="TMS") ? fmtNum2(v) : fmtInt(v) }
+            }
+          }
+        }
+      });
+    }
+
+    document.getElementById("btnExcel").addEventListener("click", ()=>{
+      const rowsOps=getFilteredOpsRows();
+
+      // -----------------------------
+      // HOJA 1: Proveedores
+      // -----------------------------
+      let provAgg=aggregateProviders(rowsOps);
+      provAgg=applyTop(provAgg);
+
+      const out=provAgg.map(p=>({
+        RUC:p.RUC,
+        PROVEEDOR:p.PROVEEDOR,
+        SEDE:p.SEDE,
+        ZONA:p.ZONA,
+        OPS: Number(p.OPS||0),
+        TMS: Number(p.TMS||0)
+      }));
+
+      const ws=XLSX.utils.json_to_sheet(out);
+      ws["!cols"]=[{wch:14},{wch:52},{wch:18},{wch:16},{wch:10},{wch:14}];
+
+      const r1 = XLSX.utils.decode_range(ws["!ref"]);
+      for(let R=1; R<=r1.e.r; R++){
+        const cOps = ws[XLSX.utils.encode_cell({r:R,c:4})];
+        if(cOps){ cOps.t="n"; cOps.z="#,##0"; }
+
+        const cTms = ws[XLSX.utils.encode_cell({r:R,c:5})];
+        if(cTms){ cTms.t="n"; cTms.z="#,##0.00"; }
+      }
+
+      const wb=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Proveedores");
+
+      // -----------------------------
+      // HOJA 2: Resumen
+      // -----------------------------
+      const allDeps = (window.ALL_DEPS && window.ALL_DEPS.length) ? window.ALL_DEPS.slice() : [];
+      if(!allDeps.includes("CALLAO")) allDeps.push("CALLAO");
+      allDeps.sort((a,b)=>String(a).localeCompare(String(b)));
+
+      const depMap=new Map();
+      for(const dep of allDeps){
+        depMap.set(dep,{ provSet:new Set(), carSet:new Set(), ops:0, tms:0 });
+      }
+
+      for(let i=0;i<rowsOps.length;i++){
+        const r=rowsOps[i];
+        const dep=up(r.DEPARTAMENTO||"");
+        if(!dep) continue;
+        if(!depMap.has(dep)){
+          depMap.set(dep,{ provSet:new Set(), carSet:new Set(), ops:0, tms:0 });
+          allDeps.push(dep);
+        }
+        const obj=depMap.get(dep);
+
+        obj.provSet.add(String(r.RUC||""));
+
+        const car=normStr(r.CAR||"");
+        const carKey=car?car:(`__NO_CAR__${i}`);
+        if(!obj.carSet.has(carKey)){
+          obj.carSet.add(carKey);
+          obj.ops += 1;
+          obj.tms += toNumberSafe(r.TMS);
+        }
+      }
+
+      const totalProv = new Set(rowsOps.map(r=>String(r.RUC||""))).size || 0;
+      const totalOps  = uniqueCarCount(rowsOps) || 0;
+      const totalTms  = sumTmsUniqueCar(rowsOps);
+
+      const header = ["DEPARTAMENTO","N° PROVEEDORES","% PROVEEDORES","OPS","% OPS","TMS","% TMS"];
+      const aoa = [header];
+
+      for(const dep of allDeps){
+        const obj=depMap.get(dep) || { provSet:new Set(), ops:0, tms:0 };
+        const prov = obj.provSet.size || 0;
+        const ops  = obj.ops || 0;
+        const tms  = (obj.tms || 0);
+
+        const pProv = totalProv ? (prov/totalProv) : 0;
+        const pOps  = totalOps  ? (ops/totalOps)   : 0;
+        const pTms  = totalTms  ? (tms/totalTms)   : 0;
+
+        aoa.push([dep, prov, pProv, ops, pOps, tms, pTms]);
+      }
+
+      const wsRes = XLSX.utils.aoa_to_sheet(aoa);
+      wsRes["!cols"] = [{wch:16},{wch:16},{wch:14},{wch:10},{wch:10},{wch:12},{wch:10}];
+
+      const range = XLSX.utils.decode_range(wsRes["!ref"]);
+      for(let R=1; R<=range.e.r; R++){
+        for(const C of [1,3]){
+          const cell = wsRes[XLSX.utils.encode_cell({r:R,c:C})];
+          if(cell){ cell.t="n"; cell.z="#,##0"; }
+        }
+
+        {
+          const cell = wsRes[XLSX.utils.encode_cell({r:R,c:5})];
+          if(cell){ cell.t="n"; cell.z="#,##0.00"; }
+        }
+
+        for(const C of [2,4,6]){
+          const cell = wsRes[XLSX.utils.encode_cell({r:R,c:C})];
+          if(cell){ cell.t="n"; cell.z="0.00%"; }
+        }
+      }
+
+      XLSX.utils.book_append_sheet(wb, wsRes, "Resumen");
+
+      const fname=`MVD_Proveedores_${metricMode}_${(filterZona||"Todas")}_${(filterDepartamento||"TodosDep")}_${(filterSede||"TodasSedes")}.xlsx`;
+      XLSX.writeFile(wb, fname);
+    });
+
+    function doResetAll(){
+      filterZona="";
+      filterDepartamento="";
+      filterSede="";
+      filterProviderRuc="";
+      showVeriCooXY=false;
+      mapMetric="PROV";
+      if(selMapMetric) selMapMetric.value="PROV";
+      selZona.value="";
+      selDepartamento.value="";
+      selSede.value="";
+      chkVeriCooXY.checked=false;
+      txtSearch.value="";
+      selTop.value="0";
+
+      chartYearSelected = new Set(availableYears || []);
+      chartMonthsSelected = new Set([1,2,3,4,5,6,7,8,9,10,11,12]);
+
+      buildChartFilterLists();
+      renderAll(true);
+    }
+
+    selZona.addEventListener("change", ()=>{
+      filterZona=selZona.value||"";
+      if(filterDepartamento && filterZona){
+        const deps=uniqueSorted(DATA.opsRows.filter(r=>r.ZONA===filterZona).map(r=>r.DEPARTAMENTO));
+        if(!deps.includes(filterDepartamento)){ filterDepartamento=""; selDepartamento.value=""; }
+      }
+      if(filterSede && filterZona){
+        const ok=DATA.opsRows.some(r=>r.ZONA===filterZona && r.SEDE===filterSede);
+        if(!ok){ filterSede=""; selSede.value=""; }
+      }
+      filterProviderRuc="";
+      renderAll(true);
+    });
+
+    selDepartamento.addEventListener("change", ()=>{
+      filterDepartamento=selDepartamento.value||"";
+      if(filterDepartamento){ filterSede=""; selSede.value=""; }
+      if(filterDepartamento){
+        const z=deptZoneDominant(filterDepartamento);
+        filterZona=(z==="NO ASIGNADO")?"":z; selZona.value=filterZona;
+      }
+      filterProviderRuc="";
+      renderAll(true);
+    });
+
+    selSede.addEventListener("change", ()=>{
+      filterSede=selSede.value||"";
+      if(filterSede){
+        const dep=up(SEDE_DEP[filterSede]||"");
+        filterDepartamento=dep; selDepartamento.value=dep;
+        const z=zoneFromSede(filterSede);
+        filterZona=(z==="NO ASIGNADO")?"":z; selZona.value=filterZona;
+      }
+      filterProviderRuc="";
+      renderAll(true);
+    });
+
+    chkVeriCooXY.addEventListener("change", ()=>{
+      showVeriCooXY=!!chkVeriCooXY.checked;
+      renderAll(false);
+    });
+
+    txtSearch.addEventListener("input", ()=>{
+      const q=(txtSearch.value||"").trim();
+      if(q.length>=6){
+        const rowsOps=getFilteredOpsRows();
+        const provAgg=aggregateProviders(rowsOps);
+        if(provAgg.length===1){
+          filterProviderRuc=provAgg[0].RUC;
+          renderAll(true);
+          return;
+        }
+      }
+      if(!q && filterProviderRuc) filterProviderRuc="";
+      renderAll(false);
+    });
+
+    selTop.addEventListener("change", ()=>renderAll(false));
+
+    selMetric.addEventListener("change", ()=>{
+      metricMode=selMetric.value||"OPS";
+      renderAll(false);
+    });
+
+    selMapMetric.addEventListener("change", ()=>{
+      mapMetric = selMapMetric.value || "PROV";
+      renderMap(false);
+    });
+
+    const adminModal=new bootstrap.Modal(document.getElementById("adminModal"));
+
+    const __btnGearEl = document.getElementById("btnGear");
+    if(__btnGearEl && ADMIN_ENABLED) __btnGearEl.addEventListener("click", ()=>{
+
+      if(pin!==ADMIN_PIN){ alert("PIN incorrecto."); return; }
+      document.getElementById("adminLog").textContent =
+        "Listo. Selecciona uno o más Excel y carga.\n" +
+        "Buscará todas las hojas RO* (RO, RO2024, RO2025, etc.).\n" +
+        "Se guardará en IndexedDB (almacenamiento del navegador) y quedará al reabrir el HTML.\n\n";
+      adminModal.show();
+    });
+
+    document.getElementById("btnClearLocal").addEventListener("click", async ()=>{
+      await clearDataAsync();
+      document.getElementById("adminLog").textContent += "✅ Data local borrada.\n";
+      filterZona=""; filterDepartamento=""; filterSede=""; filterProviderRuc="";
+      selZona.value=""; selDepartamento.value=""; selSede.value="";
+      txtSearch.value=""; selTop.value="0";
+      chkVeriCooXY.checked=false; showVeriCooXY=false;
+      mapMetric="PROV";
+      if(selMapMetric) selMapMetric.value="PROV";
+      renderAll(true);
+    });
+
+    document.getElementById("btnLoadExcel").addEventListener("click", async ()=>{
+      const files=Array.from(document.getElementById("fileExcel").files || []);
+      if(!files.length){
+        document.getElementById("adminLog").textContent += "❌ Selecciona uno o más Excel.\n";
+        return;
+      }
+
+      document.getElementById("adminLog").textContent += `⏳ Leyendo ${files.length} archivo(s)...\n`;
+
+      try{
+        const allOps=[], allFiles=[], allSheets=[], allErrors=[];
+        for(const f of files){
+          document.getElementById("adminLog").textContent += `   • ${f.name}\n`;
+          const parsed=await parseExcelFileAllRO(f);
+          allFiles.push(parsed.fileName);
+          parsed.sheetsParsed.forEach(s=>allSheets.push(`${parsed.fileName}:${s}`));
+          parsed.sheetErrors.forEach(e=>allErrors.push(e));
+          allOps.push(...(parsed.opsRows || []));
+        }
+
+        DATA = {
+          last_update: `${new Date().toISOString()} (cargado desde Excel)`,
+          source_files: allFiles,
+          source_sheets: allSheets,
+          opsRows: allOps
+        };
+        await saveDataAsync(DATA);
+
+        const uniqProv=new Set(DATA.opsRows.map(x=>String(x.RUC||""))).size;
+        const tmsSum=sumTmsUniqueCar(DATA.opsRows);
+
+        document.getElementById("adminLog").textContent +=
+          `\n✅ OK.\n` +
+          `- Operaciones (filas): ${fmtInt(DATA.opsRows.length)}\n` +
+          `- Proveedores únicos (RUC): ${fmtInt(uniqProv)}\n` +
+          `- TMS total (CAR): ${fmtNum2(tmsSum)}\n`;
+
+        if(allErrors.length){
+          document.getElementById("adminLog").textContent +=
+            `\n⚠️ Advertencias (hojas omitidas):\n- ` + allErrors.join("\n- ") + "\n";
+        }
+
+        filterZona=""; filterDepartamento=""; filterSede=""; filterProviderRuc="";
+        selZona.value=""; selDepartamento.value=""; selSede.value="";
+        txtSearch.value=""; selTop.value="0";
+        chkVeriCooXY.checked=false; showVeriCooXY=false;
+
+        chartYearSelected.clear();
+        chartMonthsSelected = new Set([1,2,3,4,5,6,7,8,9,10,11,12]);
+        chartFiltersInitialized=false;
+        buildChartFilterLists();
+
+        renderAll(true);
+      }catch(err){
+        document.getElementById("adminLog").textContent += `❌ Error: ${err.message}\n`;
+      }
+    });
+
+    function renderAll(recenter){
+      normalizeSelects();
+      renderKPI();
+      renderTable();
+      renderChart();
+      renderMap(recenter);
+    }
+
+    (async function init(){
+      if(!ADMIN_ENABLED){
+        const m = document.getElementById("adminModal"); if(m) m.remove();
+      }
+
+      metricMode = selMetric.value || "TMS";
+      DATA = await loadDataAsync();
+      try{ await loadDepartments(); }catch(e){ console.warn(e); }
+      buildChartFilterLists();
+      renderAll(true);
+    })();
+  </script>
+</body>
+</html>
